@@ -93,7 +93,12 @@ public class BookLineInfo {
      * @param height
      */
     public void setLineHeight(int height) {
-        lineHeight = height;
+        lineHeight = (int)(lineHeightRate * height) + topGap + bottomGap;
+        for (int i = 0; i < elements.size(); i++) {
+            BookTextBaseElement element = elements.get(i);
+            element.y = element.y + (int)((lineHeightRate -1 ) * height / 2) + height + topGap;
+        }
+
     }
 
     /**
@@ -146,13 +151,5 @@ public class BookLineInfo {
                 element.y = element.y - moveY;
             }
         }
-    }
-
-
-    /**
-     * 设置元素的y坐标
-     */
-    public void resetVerticalPosition() {
-
     }
 }

@@ -345,7 +345,6 @@ public class EpubReaderHtml {
 
             if (elementHeight > lineHeight) {
                 lineHeight = elementHeight;
-                lineInfo.setLineHeight(lineHeight);
             }
             if (isFirstElement) {
                 isFirstElement = false;
@@ -354,7 +353,7 @@ public class EpubReaderHtml {
             lastElement = element;
             elementIndex++;
         }
-        lineInfo.resetVerticalPosition();
+        lineInfo.setLineHeight(lineHeight);
         return lineInfo;
     }
 

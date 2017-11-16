@@ -1,5 +1,8 @@
 package com.example.epubreader.util;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 /**
  * Created by zjb on 2017/11/3.
  */
@@ -40,4 +43,33 @@ public class BookStingUtil {
         }
         return result;
     }
+
+    // 根据Unicode编码完美的判断中文汉字和符号
+    public static boolean isChinese(char c) {
+        Character.UnicodeBlock ub = Character.UnicodeBlock.of(c);
+        if (ub == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS
+                || ub == Character.UnicodeBlock.CJK_COMPATIBILITY_IDEOGRAPHS
+                || ub == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A
+                || ub == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B
+                || ub == Character.UnicodeBlock.CJK_SYMBOLS_AND_PUNCTUATION
+                || ub == Character.UnicodeBlock.HALFWIDTH_AND_FULLWIDTH_FORMS
+                || ub == Character.UnicodeBlock.GENERAL_PUNCTUATION) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 校验某个字符是否是a-z、A-Z、_、0-9
+     *
+     * @param c 被校验的字符
+     * @return true 代表符合条件
+     */
+    public static boolean isWord(char c) {
+        String regEx = "[\\w]";
+        Pattern p = Pattern.compile(regEx);
+        Matcher m = p.matcher("" + c);
+        return m.matches();
+    }
+
 }
