@@ -8,6 +8,7 @@ import com.example.epubreader.book.tag.DivisionControlTag;
 import com.example.epubreader.book.tag.ImageControlTag;
 import com.example.epubreader.book.tag.LineBreakControlTag;
 import com.example.epubreader.book.tag.ParagraphControlTag;
+import com.example.epubreader.util.BookStingUtil;
 import com.example.epubreader.util.MyReadLog;
 import com.example.epubreader.view.book.element.BookTextBaseElement;
 import com.example.epubreader.view.book.element.BookTextImageElement;
@@ -177,23 +178,44 @@ public class BookContentElement {
         if (!TextUtils.isEmpty(content)) {
             char[] contentChars = content.toCharArray();
             int index = 0;
-
             boolean isReadLetter = false;
             StringBuffer sb = new StringBuffer();
+            BookTextBaseElement element;
             while (index < contentChars.length) {
                 if (contentChars[index] != '&') {
                     if (contentChars[index] < 'a' || contentChars[index] > 'Z') {
-                        BookTextWordElement element = new BookTextWordElement(String.valueOf(contentChars[index]), this);
+                        // TODO TEST判断接下来的三个字符是不是字母或者数字，如果接下来的三个字符都是数字或者字母，则都放到一个wordElement里面
+                        int forwardIndex = 3;
+                        if (forwardIndex + index > contentChars.length - 1) {
+                            forwardIndex = contentChars.length - 1 - index;
+                        }
+                        int realForwardIndex = 0;
+                        if (forwardIndex > 0) {
+                            sb.append(contentChars[index]);
+                            for (int i = 1; i < forwardIndex + 1; i++) {
+                                if (!BookStingUtil.isOnlyChinese(contentChars[index + i])) {
+                                    sb.append(contentChars[index + i]);
+                                    realForwardIndex = i;
+                                } else {
+                                    break;
+                                }
+                            }
+//                            MyReadLog.i(sb.toString());
+                            element = new BookTextWordElement(sb.toString(), this);
+                            sb.setLength(0);
+                        } else {
+                            element = new BookTextWordElement(String.valueOf(contentChars[index]), this);
+                        }
                         element.setIndex(index);
+                        index = index + 1 + realForwardIndex;
                         result.add(element);
-                        index++;
                     } else {
                         isReadLetter = true;
                     }
                     if (isReadLetter) {
                         sb.append(contentChars[index]);
                         if (index + 1 >= contentChars.length || (index + 1 < contentChars.length && (contentChars[index] < 'a' || contentChars[index] > 'Z'))) {
-                            BookTextWordElement element = new BookTextWordElement(String.valueOf(contentChars[index]), this);
+                            element = new BookTextWordElement(String.valueOf(contentChars[index]), this);
                             element.setIndex(index);
                             result.add(element);
                             isReadLetter = false;
@@ -202,7 +224,7 @@ public class BookContentElement {
                         index++;
                     }
                 } else {
-                    BookTextBaseElement element;
+
                     int semicolonIndex = content.indexOf(";", index);
                     if (semicolonIndex > -1 && (semicolonIndex - index) < 9) {
                         String characterEntryStr = (semicolonIndex == contentChars.length - 1)
@@ -250,7 +272,7 @@ public class BookContentElement {
      */
     public boolean isCurrentElementParagraphStart() {
         if (parent == null) return true;
-        if (parent.getControlTag() instanceof ParagraphControlTag || parent.getControlTag() instanceof DivisionControlTag){
+        if (parent.getControlTag() instanceof ParagraphControlTag || parent.getControlTag() instanceof DivisionControlTag) {
             return index == 0;
         } else {
             return parent.isCurrentElementParagraphStart();

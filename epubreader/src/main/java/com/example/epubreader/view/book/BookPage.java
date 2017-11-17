@@ -3,6 +3,7 @@ package com.example.epubreader.view.book;
 import android.graphics.Bitmap;
 import android.support.v4.util.ArrayMap;
 
+import com.example.epubreader.ReaderApplication;
 import com.example.epubreader.book.css.BookTagAttribute;
 import com.example.epubreader.book.tag.BodyControlTag;
 import com.example.epubreader.util.BookAttributeUtil;
@@ -66,9 +67,9 @@ public class BookPage {
      * 获取边距
      */
     private void setGap() {
-        lGap = rGap = 100;
-        tGap = 150;
-        bGap = 50;
+        lGap = rGap = (int)(15 * (ReaderApplication.getInstance().getWindowSize().density) + 0.5f);
+        tGap =        (int)(25 * (ReaderApplication.getInstance().getWindowSize().density) + 0.5f);
+        bGap =        (int)(10 * (ReaderApplication.getInstance().getWindowSize().density) + 0.5f);
 
 //        lGap = BookAttributeUtil.getMargin(attributeMap, BookAttributeUtil.POSITION_LEFT, pageWidth)
 //                + BookAttributeUtil.getPadding(attributeMap, BookAttributeUtil.POSITION_LEFT, pageWidth);

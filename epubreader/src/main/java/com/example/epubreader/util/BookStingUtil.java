@@ -8,6 +8,7 @@ import java.util.regex.Pattern;
  */
 
 public class BookStingUtil {
+    private static final String REG_EX = "[\\w]"; // 用于正则匹配数字或者字母
 
     /**
      * 获取MetData的值
@@ -59,6 +60,15 @@ public class BookStingUtil {
         return false;
     }
 
+    // 根据Unicode编码完美的判断中文汉字和符号
+    public static boolean isOnlyChinese(char c) {
+        Character.UnicodeBlock ub = Character.UnicodeBlock.of(c);
+        if (ub == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS) {
+            return true;
+        }
+        return false;
+    }
+
     /**
      * 校验某个字符是否是a-z、A-Z、_、0-9
      *
@@ -66,8 +76,7 @@ public class BookStingUtil {
      * @return true 代表符合条件
      */
     public static boolean isWord(char c) {
-        String regEx = "[\\w]";
-        Pattern p = Pattern.compile(regEx);
+        Pattern p = Pattern.compile(REG_EX);
         Matcher m = p.matcher("" + c);
         return m.matches();
     }

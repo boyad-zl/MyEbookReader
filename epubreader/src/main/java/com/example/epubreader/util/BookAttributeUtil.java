@@ -36,7 +36,6 @@ public class BookAttributeUtil {
     }
 
     /**
-     * todo test em属性设置没有定下来
      * 获取长度信息
      *
      * @param lengthStr
@@ -44,7 +43,7 @@ public class BookAttributeUtil {
      * @return
      */
     public static int getLength(String lengthStr, int lineWidth) {
-        int size = 100;
+        int size = ONE_EM_LENGTH;
         if (lengthStr.equals("auto")) {
             return -1;
         }
@@ -57,15 +56,16 @@ public class BookAttributeUtil {
             } else if (lengthStr.endsWith("%")) {
                 size = Integer.valueOf(lengthStr.substring(0, lengthStr.indexOf("%")));
                 size = lineWidth * size / 100;
+            } else {
+                size = (int)(Float.valueOf(lengthStr) + 0);
             }
         } catch (NumberFormatException e) {
-            size = 100;
+            size = ONE_EM_LENGTH;
         }
         return size;
     }
 
     /**
-     * todo test 1em 字体大小尚未确定
      * 获取字体大小
      *
      * @param
