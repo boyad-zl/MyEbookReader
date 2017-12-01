@@ -1,6 +1,7 @@
 package com.example.epubreader.book.tag;
 
 import android.support.v4.util.ArrayMap;
+import android.support.v4.util.SimpleArrayMap;
 import android.text.TextUtils;
 
 import com.example.epubreader.book.css.BookCSSAttributeSet;
@@ -53,9 +54,11 @@ public class BookBasicControlTag {
         if (classIndex > -1) {
             String classValue = BookStingUtil.getDataValue(attributeStr, "\"", "\"", classIndex).trim();
             if (!TextUtils.isEmpty(classValue)) {
-                String[] classes = classValue.split(" ");
+//                String[] classes = classValue.split(" ");
 //                MyReadLog.i("first class is " + classes[0]);
-                attributeMap = bookCSSAttributeSet.getBookClass(classValue, tagName).attributes;
+                if (bookCSSAttributeSet.getBookClass(classValue, tagName) != null) {
+                    attributeMap.putAll((SimpleArrayMap<String, BookTagAttribute>)bookCSSAttributeSet.getBookClass(classValue, tagName).attributes);
+                }
             }
         }
         int styleIndex = attributeStr.indexOf("style");

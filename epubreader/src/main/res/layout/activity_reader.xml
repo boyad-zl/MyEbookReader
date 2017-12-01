@@ -1,37 +1,66 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:layout_alignParentBottom="true"
-    android:scrollbars="none">
+    android:layout_height="match_parent">
 
-    <LinearLayout
+    <com.example.epubreader.view.widget.BookReaderView
+        android:id="@+id/main_reader_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/font_size_larger"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@android:color/darker_gray"
+                android:alpha="0.3"
+                android:text=" + "
+                android:gravity="center"/>
+
+
+            <TextView
+                android:id="@+id/font_size_smaller"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@android:color/darker_gray"
+                android:alpha="0.3"
+                android:text=" - "
+                android:layout_marginLeft="10dp"
+                android:gravity="center"/>
+
+            <TextView
+                android:id="@+id/btn_day_or_night_theme"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@android:color/darker_gray"
+                android:alpha="0.3"
+                android:text="白"
+                android:layout_marginLeft="10dp"
+                android:gravity="center"/>
+
+            <TextView
+                android:id="@+id/btn_cover_show"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@android:color/darker_gray"
+                android:alpha="0.3"
+                android:text="封"
+                android:layout_marginLeft="10dp"
+                android:gravity="center"/>
+        </LinearLayout>
+
+    <ImageView
+        android:id="@+id/reader_img"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <TextView
-            android:id="@+id/reader_tv"
-            android:layout_width="match_parent"
-            android:layout_height="40dp"
-            android:text="this is a reader window" />
-
-        <ImageView
-            android:id="@+id/reader_img"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-        <TextView
-            android:id="@+id/reader_content"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-        <ImageView
-            android:id="@+id/reader_page_img"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-    </LinearLayout>
-
-</ScrollView>
-
+        android:paddingRight="30dp"
+        android:paddingLeft="30dp"
+        android:visibility="gone"
+        android:layout_gravity="center"/>
+</FrameLayout>

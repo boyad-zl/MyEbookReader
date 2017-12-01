@@ -1,9 +1,9 @@
 package com.example.epubreader.view.book;
 
-import com.example.epubreader.book.tag.BookBasicControlTag;
 import com.example.epubreader.util.BookAttributeUtil;
 import com.example.epubreader.util.MyReadLog;
 import com.example.epubreader.view.book.element.BookTextBaseElement;
+import com.example.epubreader.view.book.element.BookTextImageElement;
 
 import java.util.ArrayList;
 
@@ -21,11 +21,18 @@ public class BookLineInfo {
     private int lineWidth;
     ArrayList<BookTextBaseElement> elements;
 
+
+    private int textElementTopY, textElementBottomY, contentElementTopY, contentElementBottomY;
+    private int maxTextElementHeight= 0;
+    private int maxOtherElementHeight = 0;
+
     public BookLineInfo(int lineWidth, int lineInfoStartX, int lineInfoStartY) {
         this.lineWidth = lineWidth;
         this.x = lineInfoStartX;
         this.y = lineInfoStartY;
         elements = new ArrayList<>();
+
+        textElementTopY = textElementBottomY = contentElementTopY = contentElementBottomY = lineInfoStartY;
     }
 
     /**
@@ -62,6 +69,21 @@ public class BookLineInfo {
      */
     public void addTextElement(BookTextBaseElement element) {
         elements.add(element);
+        if (element instanceof BookTextImageElement) {
+//            MyReadLog.i("图片element height = " + element.height);
+            contentElementTopY = Math.min(contentElementTopY, element.y);
+            contentElementBottomY = Math.max(contentElementBottomY, element.y + element.height);
+
+            maxOtherElementHeight = Math.max(maxOtherElementHeight, element.height);
+        } else {
+            contentElementTopY = Math.min(contentElementTopY, element.y - element.height);
+            contentElementBottomY = Math.max(contentElementBottomY, element.y);
+            textElementTopY = Math.min(textElementTopY, element.y - element.height);
+            textElementBottomY = Math.max(textElementBottomY, element.y);
+
+            maxTextElementHeight = Math.max(maxTextElementHeight, element.height);
+        }
+
     }
 
     /**
@@ -73,7 +95,7 @@ public class BookLineInfo {
     public void rebuildLineInfo(int gap) {
 //        MyReadLog.i("gap ->" + gap + "， size is " + elements.size());
         if (elements.size() > 1) {
-            int averageGap = gap / elements.size() ;
+            int averageGap = gap / elements.size();
             int excessGap = gap % elements.size();
             for (int i = 0; i < elements.size(); i++) {
                 BookTextBaseElement element = elements.get(i);
@@ -88,17 +110,91 @@ public class BookLineInfo {
     }
 
     /**
+     * TODO TEST ：设置行高存在问题
      * 设置行高度
      *
-     * @param height
      */
-    public void setLineHeight(int height) {
-        lineHeight = (int)(lineHeightRate * height) + topGap + bottomGap;
-        for (int i = 0; i < elements.size(); i++) {
-            BookTextBaseElement element = elements.get(i);
-            element.y = element.y + (int)((lineHeightRate -1 ) * height / 2) + height + topGap;
-        }
+    public void setLineHeight() {
+        int lineHeightGap = (int) ((lineHeightRate - 1) * maxTextElementHeight / 2);
+        int textBaseLineYOffset ;
+//        MyReadLog.i("top or bottom gap is " + lineHeightGap);
+        if (maxOtherElementHeight < maxTextElementHeight) {
+//            if (maxOtherElementHeight == 0) {
+//                lineHeight = (int) (lineHeightRate * maxTextElementHeight) + topGap + bottomGap;
+//                for (int i = 0; i < elements.size(); i++) {
+//                    BookTextBaseElement element = elements.get(i);
+//                    element.y = element.y + maxTextElementHeight + topGap + lineHeightGap;
+//                }
+//            } else {
+//                int textBaseLineYOffset ;
+                if (contentElementTopY  < textElementTopY - lineHeightGap) {
+                    lineHeight = textElementBottomY - contentElementTopY;
+                } else {
+                    lineHeight = lineHeightGap + maxTextElementHeight;
+                }
+                lineHeight = lineHeight + topGap;
+                textBaseLineYOffset = lineHeight ;
+                if (contentElementBottomY > contentElementBottomY + lineHeightGap){
+                    lineHeight = lineHeight + (contentElementBottomY - textElementBottomY);
+                } else {
+                    lineHeight = lineHeight + lineHeightGap ;
+                }
+                lineHeight = lineHeight + bottomGap;
 
+                for (int i = 0; i < elements.size(); i++) {
+                    BookTextBaseElement element = elements.get(i);
+                    element.y = element.y + textBaseLineYOffset ;
+                }
+//            }
+        } else {
+//            int textBaseLineYOffset ;
+            if (contentElementTopY  < textElementTopY - lineHeightGap) {
+                lineHeight = textElementBottomY - contentElementTopY;
+            } else {
+                lineHeight = lineHeightGap + maxTextElementHeight;
+            }
+            lineHeight = lineHeight + topGap;
+            textBaseLineYOffset = lineHeight ;
+            if (contentElementBottomY > contentElementBottomY + lineHeightGap){
+                lineHeight = lineHeight + (contentElementBottomY - textElementBottomY);
+            } else {
+                lineHeight = lineHeight + lineHeightGap;
+            }
+            lineHeight = lineHeight + bottomGap;
+
+            for (int i = 0; i < elements.size(); i++) {
+                BookTextBaseElement element = elements.get(i);
+                element.y = element.y + textBaseLineYOffset ;
+            }
+        }
+//        MyReadLog.i("y = " + y + " , height = " + lineHeight + " ,  textBaseLineYOffset = " + textBaseLineYOffset + " , topGap = " + topGap);
+//        MyReadLog.d("contentElementTopY = %d, contentElementBottomY = %d, textElementTopY = %d, textElementBottomY = %d", contentElementTopY, contentElementBottomY, textElementTopY, textElementBottomY);
+//        if (contentElementTopY < textElementTopY) {
+//            lineHeight = lineHeight - (int) ((lineHeightRate - 1) / 2 * height);
+//        }
+//        if (contentElementBottomY > textElementBottomY) {
+//            lineHeight = lineHeight - (int) ((lineHeightRate - 1) / 2 * height);
+//        }
+//        if (elements.size() == 1) {
+//            BookTextBaseElement element = elements.get(0);
+//            if (!(element instanceof BookTextImageElement)) {
+//            } else {
+//            }
+//                element.y = element.y + height;
+//            lineHeight = height + topGap + bottomGap;
+//        } else {
+//            for (int i = 0; i < elements.size(); i++) {
+//                BookTextBaseElement element = elements.get(i);
+//                if (element instanceof BookTextImageElement) {
+//                    MyReadLog.i("need top line height ?  " + (textElementTopY <= contentElementTopY));
+//                    MyReadLog.i("need bottom line height ?  " + (contentElementBottomY <= textElementBottomY));
+//                }
+//                element.y = element.y + height + topGap;
+//                if (textElementTopY <= contentElementTopY) {
+//                    element.y = element.y + (int) ((lineHeightRate - 1) * height / 2);
+//                }
+//            }
+//        }
     }
 
     /**
@@ -116,20 +212,27 @@ public class BookLineInfo {
             case BookAttributeUtil.TEXT_ALIGN_CENTER:
                 if (elements.size() > 0) {
                     BookTextBaseElement firstElement = elements.get(0);
-                    BookTextBaseElement lastElement = elements.get(elements.size() - 1);
-                    int rightGap = lineWidth - lastElement.x - lastElement.width;
-                    if (rightGap > firstElement.x) {
-                        int moveX = (rightGap - firstElement.x) / 2;
-                        for (BookTextBaseElement element : elements) {
-                            element.x = element.x + moveX;
+                    if (elements.size() == 1) {
+                        int rightGap = lineWidth - (firstElement.x - x) - firstElement.width;
+                        if (rightGap > firstElement.x - x) {
+                            firstElement.x = firstElement.x + (rightGap - (firstElement.x - x)) / 2;
+                        }
+                    } else {
+                        BookTextBaseElement lastElement = elements.get(elements.size() - 1);
+                        int rightGap = lineWidth - (lastElement.x - x) - lastElement.width;
+                        if (rightGap > firstElement.x - x) {
+                            int moveX = (rightGap - (firstElement.x - x)) / 2;
+                            for (BookTextBaseElement element : elements) {
+                                element.x = element.x + moveX;
+                            }
                         }
                     }
                 }
                 break;
             case BookAttributeUtil.TEXT_ALIGN_RIGHT:
-                if (elements.size() > 0){
+                if (elements.size() > 0) {
                     BookTextBaseElement lastElement = elements.get(elements.size() - 1);
-                    int moveX = (lineWidth - lastElement.x - lastElement.width);
+                    int moveX = (lineWidth + x - lastElement.x - lastElement.width);
                     for (BookTextBaseElement element : elements) {
                         element.x = element.x + moveX;
                     }
@@ -145,7 +248,7 @@ public class BookLineInfo {
      */
     public void moveUp(int moveY) {
         y = y - moveY;
-        if (elements.size() > 0 ) {
+        if (elements.size() > 0) {
             for (int i = 0; i < elements.size(); i++) {
                 BookTextBaseElement element = elements.get(i);
                 element.y = element.y - moveY;

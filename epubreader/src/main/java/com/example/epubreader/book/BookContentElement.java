@@ -1,12 +1,15 @@
 package com.example.epubreader.book;
 
+import android.support.v4.util.ArrayMap;
 import android.text.TextUtils;
 
+import com.example.epubreader.book.css.BookTagAttribute;
 import com.example.epubreader.book.tag.BodyControlTag;
 import com.example.epubreader.book.tag.BookBasicControlTag;
 import com.example.epubreader.book.tag.DivisionControlTag;
 import com.example.epubreader.book.tag.ImageControlTag;
 import com.example.epubreader.book.tag.LineBreakControlTag;
+import com.example.epubreader.book.tag.LinkControlTag;
 import com.example.epubreader.book.tag.ParagraphControlTag;
 import com.example.epubreader.util.BookStingUtil;
 import com.example.epubreader.util.MyReadLog;
@@ -137,7 +140,7 @@ public class BookContentElement {
      * @return
      */
     public int getElementSize() {
-        if (contentElements == null) MyReadLog.i("contentElements 是空！！！");
+//        if (contentElements == null) MyReadLog.i("contentElements 是空！！！");
         return contentElements == null ? 0 : contentElements.size();
     }
 
@@ -174,7 +177,6 @@ public class BookContentElement {
      */
     public ArrayList<BookTextBaseElement> getTextElements() {
         ArrayList<BookTextBaseElement> result = new ArrayList<>();
-
         if (!TextUtils.isEmpty(content)) {
             char[] contentChars = content.toCharArray();
             int index = 0;
@@ -183,28 +185,30 @@ public class BookContentElement {
             BookTextBaseElement element;
             while (index < contentChars.length) {
                 if (contentChars[index] != '&') {
-                    if (contentChars[index] < 'a' || contentChars[index] > 'Z') {
+                    if (!BookStingUtil.isLetter(contentChars[index])) {
                         // TODO TEST判断接下来的三个字符是不是字母或者数字，如果接下来的三个字符都是数字或者字母，则都放到一个wordElement里面
                         int forwardIndex = 3;
                         if (forwardIndex + index > contentChars.length - 1) {
                             forwardIndex = contentChars.length - 1 - index;
                         }
+                        boolean isFirstCharChinese = BookStingUtil.isOnlyChinese(contentChars[index]);
                         int realForwardIndex = 0;
                         if (forwardIndex > 0) {
                             sb.append(contentChars[index]);
                             for (int i = 1; i < forwardIndex + 1; i++) {
-                                if (!BookStingUtil.isOnlyChinese(contentChars[index + i])) {
-                                    sb.append(contentChars[index + i]);
+                                char c = contentChars[index + i];
+                                if (!BookStingUtil.isOnlyChinese(c) && c != '&') {
+                                    sb.append(c);
                                     realForwardIndex = i;
                                 } else {
                                     break;
                                 }
                             }
 //                            MyReadLog.i(sb.toString());
-                            element = new BookTextWordElement(sb.toString(), this);
+                            element = new BookTextWordElement(sb.toString(), this , isFirstCharChinese && realForwardIndex == 0);
                             sb.setLength(0);
                         } else {
-                            element = new BookTextWordElement(String.valueOf(contentChars[index]), this);
+                            element = new BookTextWordElement(String.valueOf(contentChars[index]), this, true);
                         }
                         element.setIndex(index);
                         index = index + 1 + realForwardIndex;
@@ -232,19 +236,33 @@ public class BookContentElement {
                                 : content.substring(index, semicolonIndex + 1);
                         switch (characterEntryStr) {
                             case "&nbsp;":
-                                index = semicolonIndex + 1;
                                 element = new BookTextNbspElement(this);
+                                element.setIndex(index);
+                                index = semicolonIndex + 1;
                                 break;
+                            case "&lt;":
+                                element = new BookTextWordElement("<", this);
+                                element.setIndex(index);
+                                index = semicolonIndex + 1;
+                                break;
+                            case "&gt;":
+                                element = new BookTextWordElement(">", this);
+                                element.setIndex(index);
+                                index = semicolonIndex + 1;
+                                break;
+
                             default:
                                 MyReadLog.i(String.valueOf(contentChars[index]));
                                 element = new BookTextWordElement(String.valueOf(contentChars[index]), this);
+                                element.setIndex(index);
                                 index++;
                                 break;
                         }
                     } else {
                         element = new BookTextWordElement(String.valueOf(contentChars[index]), this);
+                        element.setIndex(index);
                     }
-                    element.setIndex(index);
+
                     result.add(element);
                 }
             }
@@ -261,7 +279,6 @@ public class BookContentElement {
                 }
             }
         }
-
         return result;
     }
 
@@ -290,6 +307,34 @@ public class BookContentElement {
             return this;
         } else {
             return this.parent.getTextParagraphElement();
+        }
+    }
+
+    /**
+     * 获取段落或者div标签的属性
+     *
+     * @return
+     */
+    public ArrayMap<String, BookTagAttribute> getParagraphAttribute() {
+        if (controlTag != null && (controlTag instanceof ParagraphControlTag || controlTag instanceof DivisionControlTag)) {
+            return controlTag.getAttributeMap();
+        } else {
+            if (parent == null) return null;
+            return parent.getParagraphAttribute();
+        }
+    }
+
+    /**
+     * 是否是链接
+     *
+     * @return
+     */
+    public boolean isLink() {
+        if (controlTag != null && controlTag instanceof LinkControlTag) {
+            return true;
+        } else {
+            if (parent == null) return false;
+            return parent.isLink();
         }
     }
 }

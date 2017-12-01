@@ -16,6 +16,7 @@ import com.example.epubreader.util.MyReadLog;
 public abstract class BookTextBaseElement {
     public int x, y;
     public int width, height; // 元素的宽高
+    public int descent; // 上下偏移
     BookContentElement contentElement;
     int index = 0;
 
@@ -35,9 +36,11 @@ public abstract class BookTextBaseElement {
         return !this.contentElement.getPosition().equals(other.contentElement.getPosition());
     }
 
-    public abstract int getWidth(Paint paint);
+    public abstract int getWidth(int fontSize, int maxWidth, int maxHeight);
 
-    public abstract int getHeight(Paint paint);
+    public abstract int getHeight(int maxHeight);
+
+    public abstract void measureSize(int fontSize, Paint paint);
 
     /**
      * 获取所有属性（包含父标签的属性）
@@ -51,20 +54,18 @@ public abstract class BookTextBaseElement {
         String[] positions = position.split(":");
         for (int i = positions.length - 1; i > 0; i--) {
             BookContentElement parent = contentElement.getParent(i);
-//            for (int j = 0; j < parent.getControlTag().getAttributeMap().size(); j++) {
-//                result.put(parent.getControlTag().getAttributeMap().keyAt(j), parent.getControlTag().getAttributeMap().valueAt(j));
-//            }
             SimpleArrayMap<String, BookTagAttribute> arrayMap = parent.getControlTag().getAttributeMap();
             result.putAll(arrayMap);
         }
         if (contentElement.getControlTag() != null) {
             SimpleArrayMap<String, BookTagAttribute> currentContentElementAttributes = contentElement.getControlTag().getAttributeMap();
             result.putAll(currentContentElementAttributes);
-//            for (int i = 0; i < contentElement.getControlTag().getAttributeMap().size(); i++) {
-//                result.put(contentElement.getControlTag().getAttributeMap().keyAt(i), contentElement.getControlTag().getAttributeMap().valueAt(i));
-//            }
         }
         return result;
+    }
+
+    public ArrayMap<String, BookTagAttribute> getParagraphAttributeSet(){
+        return contentElement.getParagraphAttribute();
     }
 
     /**
@@ -83,7 +84,6 @@ public abstract class BookTextBaseElement {
      */
     public boolean isParagraphStart() {
         if (index > 0) return false;
-//        MyReadLog.i("index = " + index);
         return contentElement.isCurrentElementParagraphStart();
     }
 
@@ -103,4 +103,26 @@ public abstract class BookTextBaseElement {
             return paragraph.getPosition().equals(otherParagraph.getPosition());
         }
     }
+
+    /**
+     * 判断是否拥有链接
+     * @return
+     */
+    public boolean isHasLink(){
+        if (contentElement.isLink()){
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * 获取元素坐标位置
+     * @return
+     */
+    public String getPosition() {
+        return contentElement.getPosition() + "/" + index;
+    }
+
+
 }

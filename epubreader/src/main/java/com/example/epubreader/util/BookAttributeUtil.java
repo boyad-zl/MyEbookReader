@@ -5,6 +5,7 @@ import com.example.epubreader.ReaderApplication;
 import com.example.epubreader.book.css.BookTagAttribute;
 
 /**
+ * 属性哦工具类
  * Created by Boyad on 2017/11/10.
  */
 
@@ -14,7 +15,6 @@ public class BookAttributeUtil {
     public static final byte POSITION_RIGHT = 2;
     public static final byte POSITION_BOTTOM = 3;
 
-
     public static final byte TEXT_ALIGN_LEFT = 0;
     public static final byte TEXT_ALIGN_RIGHT = 1;
     public static final byte TEXT_ALIGN_CENTER = 2;
@@ -23,7 +23,8 @@ public class BookAttributeUtil {
 
     private static final float LINE_HEIGHT_NORMAL = 1.2F;
 
-    public static int ONE_EM_LENGTH = 100;
+    public static int ONE_EM_LENGTH ;
+    public static int settingFontSize = 20;
 
 
     /**
@@ -31,8 +32,13 @@ public class BookAttributeUtil {
      * @param size
      */
     public static void setEmSize(int size) {
-        ONE_EM_LENGTH = (int) (ReaderApplication.getInstance().getWindowSize().density * size);
-        MyReadLog.i("1em = " + ONE_EM_LENGTH);
+        settingFontSize = size;
+        MyReadLog.i("settingFontSize = " + settingFontSize);
+        ONE_EM_LENGTH = (int) (ReaderApplication.getInstance().getWindowSize().density * settingFontSize);
+    }
+
+    public static int getEmSize() {
+       return settingFontSize;
     }
 
     /**
@@ -82,7 +88,6 @@ public class BookAttributeUtil {
 
 
     /**
-     * todo test 1em 字体大小尚未确定
      * 获取首行缩进大小
      *
      * @param
@@ -228,7 +233,7 @@ public class BookAttributeUtil {
      */
     public static float getLineHeight(ArrayMap<String, BookTagAttribute> attributeSet) {
         float rate = LINE_HEIGHT_NORMAL;
-//        if (true) return 2.5f;
+//        if (true) return 2.0f;
         if (attributeSet == null) return rate;
         BookTagAttribute attribute = attributeSet.get("line-height");
         if (attribute == null) return rate;
@@ -289,4 +294,46 @@ public class BookAttributeUtil {
     }
 
 
+    /**
+     * 获取vertical-align属性
+     * @param attributeSet
+     * @param lastElementHeight 上一个元素的高度
+     * @param elementHeight 本元素的高度
+     * @return
+     */
+    public static int getVerticalAlign(ArrayMap<String, BookTagAttribute> attributeSet, int lastElementHeight, int elementHeight) {
+        int offsetY = 0;
+        if (attributeSet == null) return  offsetY;
+        BookTagAttribute attribute = attributeSet.get("vertical-align");
+        if (attribute == null) return offsetY;
+        switch (attribute.valueStr) {
+            case "super":
+                offsetY = lastElementHeight - elementHeight;
+                break;
+            case "middle":
+                offsetY = (lastElementHeight - elementHeight) / 2 ;
+                break;
+            case "baseline":
+            case "sub":
+            default:
+                offsetY = 0;
+                break;
+        }
+        return offsetY;
+    }
+
+    /**
+     * 是否需要vertical-align的偏移
+     * @param attributeSet
+     * @return
+     */
+    public static boolean needVerticalAlignOffset(ArrayMap<String, BookTagAttribute> attributeSet) {
+        if (attributeSet == null) return  false;
+        BookTagAttribute attribute = attributeSet.get("vertical-align");
+        if (attribute == null || attribute.valueStr.equals("baseline") ) {
+            return false;
+        } else {
+            return true;
+        }
+    }
 }

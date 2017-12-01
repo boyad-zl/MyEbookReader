@@ -6,6 +6,7 @@ import android.support.v4.util.ArrayMap;
 import com.example.epubreader.book.BookContentElement;
 import com.example.epubreader.book.css.BookCSSAttributeSet;
 import com.example.epubreader.book.css.BookTagAttribute;
+import com.example.epubreader.util.BookStingUtil;
 
 /**
  * Created by Boyad on 2017/11/9.
@@ -18,13 +19,21 @@ public class BookTextNbspElement extends BookTextBaseElement {
     }
 
     @Override
-    public int getWidth(Paint paint) {
-        return (int)(paint.measureText("  ", 0, 2) + 0.5f);
+    public int getWidth(int fontSize, int maxWidth, int maxHeight) {
+//        width = (int)(paint.measureText("  ", 0, 2) + 0.5f);
+//        width = BookStingUtil.getStringWidth(fontSize, ("  ").toCharArray(), 0, 2, );
+//        height = fontSize;
+        return width;
     }
 
     @Override
-    public int getHeight(Paint pain) {
-        return (int) (pain.getTextSize() + 0.5f);
+    public int getHeight(int maxHeight) {
+        return height;
     }
 
+    @Override
+    public void measureSize(int fontSize, Paint paint) {
+        width = BookStingUtil.getStringWidth(fontSize, ("  ").toCharArray(), 0, 2, paint);
+        height = fontSize;
+    }
 }

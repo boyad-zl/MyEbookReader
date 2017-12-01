@@ -1,5 +1,8 @@
 package com.example.epubreader.util;
 
+import android.graphics.Paint;
+
+import java.text.SimpleDateFormat;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -8,14 +11,16 @@ import java.util.regex.Pattern;
  */
 
 public class BookStingUtil {
+    private final static SimpleDateFormat hourMinuteFormat = new SimpleDateFormat("HH:mm");
     private static final String REG_EX = "[\\w]"; // 用于正则匹配数字或者字母
+
 
     /**
      * 获取MetData的值
      *
-     * @param line 需要判断的字符串
-     * @param s    值前面的标志符号
-     * @param s1   值后面的表示符号
+     * @param line       需要判断的字符串
+     * @param s          值前面的标志符号
+     * @param s1         值后面的表示符号
      * @param startIndex 开始查找的位置
      */
     public static String getDataValue(String line, String s, String s1, int startIndex) {
@@ -30,13 +35,14 @@ public class BookStingUtil {
 
     /**
      * 将字符串转换成两位小数
+     *
      * @param number
      * @return
      */
-    public static float getDoubleDecimalNumber(String number){
+    public static float getDoubleDecimalNumber(String number) {
         float result = 0;
         try {
-            result = Float.valueOf(number) ;
+            result = Float.valueOf(number);
             int result100 = (int) (result * 100);
             result = (float) result100 / 100;
         } catch (NumberFormatException e) {
@@ -60,10 +66,56 @@ public class BookStingUtil {
         return false;
     }
 
-    // 根据Unicode编码完美的判断中文汉字和符号
+    // 根据Unicode编码完美的判断中文汉字
     public static boolean isOnlyChinese(char c) {
         Character.UnicodeBlock ub = Character.UnicodeBlock.of(c);
-        if (ub == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS) {
+        if (ub == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS
+                || ub == Character.UnicodeBlock.CJK_COMPATIBILITY_IDEOGRAPHS
+                || ub == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A
+                || ub == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B) {
+//            MyReadLog.i("char = " + c);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 判断字符是否是数字
+     * @param c
+     * @return
+     */
+    public static  boolean isNumber(char c) {
+        if (c >= '0' && c <= '9'){
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * 判断字符是否是字母
+     * @param c
+     * @return
+     */
+    public static boolean isLetter(char c) {
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')){
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * 字符是否是中文标点符号
+     * @param c
+     * @return
+     */
+    public static boolean isOnlyChineseSymbols(char c) {
+        Character.UnicodeBlock ub = Character.UnicodeBlock.of(c);
+        if (ub == Character.UnicodeBlock.CJK_SYMBOLS_AND_PUNCTUATION || ub == Character.UnicodeBlock.GENERAL_PUNCTUATION
+                || ub == Character.UnicodeBlock.HALFWIDTH_AND_FULLWIDTH_FORMS) {
+//            MyReadLog.i("char = " + c);
+
             return true;
         }
         return false;
@@ -81,4 +133,28 @@ public class BookStingUtil {
         return m.matches();
     }
 
+    /**
+     * 将时间转换成HH：mm格式
+     *
+     * @param time
+     * @return
+     */
+    public static String getTimeStr(long time) {
+        return hourMinuteFormat.format(time);
+    }
+
+
+    /**
+     * 获得指定字体大小的字符串宽度
+     *
+     * @param fontSize
+     * @param content  内容
+     * @param start    开始位置
+     * @param length   长度
+     * @return
+     */
+    public static int getStringWidth(int fontSize, char[] content, int start, int length, Paint paint) {
+//        paint.setTextSize(fontSize);
+        return (int) paint.measureText(content, start, length);
+    }
 }

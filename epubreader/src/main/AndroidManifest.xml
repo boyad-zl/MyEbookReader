@@ -7,12 +7,8 @@
         android:allowBackup="true"
         android:label="@string/app_name"
         android:supportsRtl="true">
-        <activity android:name=".view.ReaderActivity"></activity>
-
-        <service
-            android:name=".book.LibraryService"
-            android:enabled="true"
-            android:exported="true"></service>
+        <activity android:name=".view.ReaderActivity" />
+        <activity android:name=".view.TestActivity"></activity>
     </application>
 
 </manifest>

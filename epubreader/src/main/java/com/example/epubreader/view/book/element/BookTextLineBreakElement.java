@@ -16,13 +16,18 @@ public class BookTextLineBreakElement extends BookTextBaseElement {
     }
 
     @Override
-    public int getWidth(Paint paint) {
-        return -1;
+    public int getWidth(int fontSize, int maxWidth, int maxHeight) {
+        return width;
     }
 
     @Override
-    public int getHeight(Paint paint) {
-        return (int)(paint.getTextSize() + 0.5f);
+    public int getHeight(int maxHeight) {
+        return height;
     }
 
+    @Override
+    public void measureSize(int fontSize, Paint paint) {
+        width = -1;
+        height = fontSize;
+    }
 }

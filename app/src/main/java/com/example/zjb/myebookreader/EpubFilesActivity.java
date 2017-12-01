@@ -16,6 +16,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.epubreader.view.ReaderActivity;
+import com.example.epubreader.view.TestActivity;
 
 import java.io.File;
 import java.io.FilenameFilter;
@@ -72,6 +73,7 @@ public class EpubFilesActivity extends AppCompatActivity implements AdapterView.
         Toast.makeText(this, epubFilsList.get(position).getName(), Toast.LENGTH_SHORT).show();
         Intent intent = new Intent();
         intent.setClass(this, ReaderActivity.class);
+//        intent.setClass(this, TestActivity.class);
         intent.putExtra("BOOK_PATH", epubFilsList.get(position).getAbsolutePath());
         startActivity(intent);
     }

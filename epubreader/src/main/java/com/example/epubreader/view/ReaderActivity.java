@@ -2,8 +2,11 @@ package com.example.epubreader.view;
 
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
+import android.view.View;
 import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -11,86 +14,97 @@ import android.widget.TextView;
 import com.example.epubreader.R;
 import com.example.epubreader.ReaderApplication;
 import com.example.epubreader.book.BookModel;
-import com.example.epubreader.book.EpubReaderHtml;
-import com.example.epubreader.view.book.BookDummyView;
+import com.example.epubreader.book.BookResourceFile;
+import com.example.epubreader.util.BookAttributeUtil;
+import com.example.epubreader.util.MyReadLog;
+import com.example.epubreader.view.widget.BookReaderView;
 
-public class ReaderActivity extends AppCompatActivity {
-
-
+public class ReaderActivity extends AppCompatActivity implements View.OnClickListener {
     private String bookPath;
-    private TextView info;
-
-    private ImageView epubPic;
-    private TextView contentView;
     private BookModel bookModel;
-    private ImageView pageImg;
-    private BookDummyView bookDummyView;
-
+    private ImageView epubPic;
+    private BookReaderView reader;
+    private TextView dayOrNightBtn;
+    private TextView coverShowBtn;
+    private boolean isShow = false;
+    private Bitmap coverBitmap;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        MyReadLog.i("==========onCreate===========");
         setContentView(R.layout.activity_reader);
-        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);
-
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
         Intent intent = getIntent();
         bookPath = intent.getStringExtra("BOOK_PATH");
-        bookModel = new BookModel(bookPath);
-        bookDummyView = new BookDummyView(ReaderApplication.getInstance());
-        info = (TextView) findViewById(R.id.reader_tv);
+        if (ReaderApplication.getInstance().getBookModel() == null || !ReaderApplication.getInstance().getBookModel().getEpubPath().equals(bookPath)) {
+            ReaderApplication.getInstance().createBookModel(bookPath);
+        }
+        bookModel = ReaderApplication.getInstance().getBookModel();
 
+        findViewById(R.id.font_size_larger).setOnClickListener(this);
+        findViewById(R.id.font_size_smaller).setOnClickListener(this);
+        dayOrNightBtn = (TextView) findViewById(R.id.btn_day_or_night_theme);
+        dayOrNightBtn.setOnClickListener(this);
+        coverShowBtn = (TextView) findViewById(R.id.btn_cover_show);
+        coverShowBtn.setOnClickListener(this);
         epubPic = (ImageView) findViewById(R.id.reader_img);
-        contentView = (TextView) findViewById(R.id.reader_content);
-        pageImg = (ImageView) findViewById(R.id.reader_page_img);
 
+        reader = (BookReaderView) findViewById(R.id.main_reader_view);
+        ReaderApplication.getInstance().setMyWidget(reader);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        info.setText("bookPath--->" + bookPath);
+       // MyReadLog.i("==========onResume===========");
+    }
 
-        epubPic.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                Bitmap bitmap =  bookModel.getBitmap(bookModel.bookCover);
-                if (bitmap != null) {
-                    epubPic.setImageBitmap(bitmap);
+    @Override
+    public void onClick(View v) {
+        int i = v.getId();
+        if (i == R.id.font_size_larger) {
+            changeFontSize(true);
+        } else if (i == R.id.font_size_smaller) {
+            changeFontSize(false);
+        }else if (i == R.id.btn_day_or_night_theme) {
+            changeDayOrNightModel();
+        }if (i == R.id.btn_cover_show) {
+            showOrHidePic();
+        }
+    }
+
+    private void showOrHidePic() {
+        if (isShow) {
+            //隐藏
+           epubPic.setVisibility(View.GONE);
+        } else  {
+            // 显示
+            if (coverBitmap == null) {
+                BookResourceFile coverFile = bookModel.imageFileArrayMap.get(bookModel.bookCover);
+                if (coverFile != null) {
+                    coverBitmap = BitmapFactory.decodeStream(bookModel.getImageInputStream(coverFile.inFilePath));
                 }
             }
-        }, 1000);
+            epubPic.setImageBitmap(coverBitmap);
+            epubPic.setVisibility(View.VISIBLE);
+        }
+        isShow = !isShow;
+    }
 
-        contentView.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                contentView.setText("开始展示内容");
-                contentView.append("\n");
-                EpubReaderHtml htmlContent = new EpubReaderHtml(bookModel);
-                htmlContent.loadHtmlInputStream(bookModel.getTextContent());
-                bookDummyView.setPages(htmlContent.getPages());
-                Bitmap bitmap = Bitmap.createBitmap(ReaderApplication.getInstance().getWindowSize().widthPixels,
-                                                    ReaderApplication.getInstance().getWindowSize().heightPixels,
-                                                    Bitmap.Config.RGB_565);
-                bookDummyView.paint(bitmap);
-                pageImg.setImageBitmap(bitmap);
-            }
-        }, 1000);
 
-        // TODO TEST:如果图片过大的话，会消耗时间较长可以考虑异步加载图片
-//        long startLoadCover = System.currentTimeMillis();
-//        Bitmap coverBitmap = BitmapFactory.decodeStream();
-//        epubPic.setImageBitmap(coverBitmap);
-//        MyReadLog.i("Load book Cover cost time is " + (System.currentTimeMillis() - startLoadCover));
-//
-//        StringBuffer sb = new StringBuffer();
-//        String contentPath = textFileArrayMap.get(spinContent[10]).inFilePath;
-//        MyReadLog.i("contentPath: " + contentPath);
-//        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(zipFile.getInputStream(zipFile.getEntry(contentPath))));
-//        String contentLine;
-//        while ((contentLine = bufferedReader.readLine()) != null) {
-//            sb.append(contentLine + "\n");
-//        }
-//        contentView.setText(sb);
+    private void changeDayOrNightModel() {
+        boolean isDayModel = ReaderApplication.getInstance().getDummyView().isDayModel();
+        ReaderApplication.getInstance().getDummyView().setDayModel(!isDayModel);
+        dayOrNightBtn.setText(isDayModel ?  "夜": "白") ;
+        ReaderApplication.getInstance().getMyWidget().repaint();
+    }
+
+    private void changeFontSize(boolean isLarger) {
+        int currentFontSize = BookAttributeUtil.getEmSize();
+        BookAttributeUtil.setEmSize(currentFontSize + (isLarger ? 2 : -2));
+        ReaderApplication.getInstance().getDummyView().reset();
+        ReaderApplication.getInstance().getMyWidget().repaint();
     }
 }
