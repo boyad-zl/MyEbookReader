@@ -20,6 +20,8 @@ public class BookTextNbspElement extends BookTextBaseElement {
 
     @Override
     public int getWidth(int fontSize, int maxWidth, int maxHeight) {
+        width = (int) (.25f*fontSize + 0.5f);
+        height = fontSize;
 //        width = (int)(paint.measureText("  ", 0, 2) + 0.5f);
 //        width = BookStingUtil.getStringWidth(fontSize, ("  ").toCharArray(), 0, 2, );
 //        height = fontSize;

@@ -2,6 +2,7 @@ package com.example.epubreader.book.tag;
 
 import android.graphics.BitmapFactory;
 import android.graphics.Rect;
+import android.support.v4.util.ArrayMap;
 import android.text.TextUtils;
 
 import com.example.epubreader.util.BookStingUtil;
@@ -14,30 +15,41 @@ import java.io.InputStream;
  * Created by Boyad on 2017/11/3.
  */
 public class ImageControlTag extends BookBasicControlTag {
+    private static final String ATTRIBUTE_NAME_SRC = "src";
+    private static final String ATTRIBUTE_NAME_ALT = "alt";
     public String altStr = "";
     public String pathStr = "";
     private Rect outPaddingRect = new Rect();
     private int[] realSize = new int[2];
 
-
     public ImageControlTag(String name, String attribute) {
         super(name, attribute);
+    }
+
+
+    public ImageControlTag(String tagName, ArrayMap<String, String> allAttribute) {
+        super(tagName, allAttribute);
     }
 
     @Override
     protected void getOtherAttribute(String attributeStr) {
         super.getOtherAttribute(attributeStr);
-        if (TextUtils.isEmpty(attributeStr)) return;
-        int altIndex = attributeStr.indexOf("alt");
-        if (altIndex > -1) {
-            altStr = BookStingUtil.getDataValue(attributeStr, "\"", "\"", altIndex);
+//        if (TextUtils.isEmpty(attributeStr)) return;
+        if (allAttribute == null) {
+            int altIndex = attributeStr.indexOf(ATTRIBUTE_NAME_ALT);
+            if (altIndex > -1) {
+                altStr = BookStingUtil.getDataValue(attributeStr, "\"", "\"", altIndex);
 //            MyReadLog.i("altStr = " + altStr);
-        }
+            }
 
-        int pathIndex = attributeStr.indexOf("src");
-        if (pathIndex > -1) {
-            pathStr = BookStingUtil.getDataValue(attributeStr, "\"", "\"", pathIndex);
+            int pathIndex = attributeStr.indexOf(ATTRIBUTE_NAME_SRC);
+            if (pathIndex > -1) {
+                pathStr = BookStingUtil.getDataValue(attributeStr, "\"", "\"", pathIndex);
 //            MyReadLog.i("pathStr = " + pathStr);
+            }
+        } else {
+            altStr = allAttribute.get(ATTRIBUTE_NAME_ALT);
+            pathStr = allAttribute.get(ATTRIBUTE_NAME_SRC);
         }
     }
 
@@ -52,7 +64,7 @@ public class ImageControlTag extends BookBasicControlTag {
             BitmapFactory.decodeStream(inputStream, outPaddingRect, options);
             realSize[0] = options.outWidth;
             realSize[1] = options.outHeight;
-            MyReadLog.d("width = %d, height = %d", realSize[0], realSize[1]);
+//            MyReadLog.d("width = %d, height = %d", realSize[0], realSize[1]);
         } else {
             realSize[0] = 0;
             realSize[1] = 0;

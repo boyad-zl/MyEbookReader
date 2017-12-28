@@ -1,6 +1,7 @@
 package com.example.epubreader.book.css;
 
 import android.support.v4.util.ArrayMap;
+import android.text.TextUtils;
 
 /**
  * CSS 里的class属性
@@ -10,7 +11,7 @@ import android.support.v4.util.ArrayMap;
 public class BookClassSet {
     public String className;
     public ArrayMap<String, BookTagAttribute> attributes;
-    public String tagName;  //指定专用的tag
+    public String tagName = "";  //指定专用的tag
 
     public BookClassSet(String className) {
         this.className = className;
@@ -19,7 +20,9 @@ public class BookClassSet {
 
     public BookClassSet(String className, String tag) {
         this.className = className;
-        this.tagName = tag;
+        if (tag != null || !TextUtils.isEmpty(tag)) {
+            this.tagName = tag;
+        }
         attributes = new ArrayMap<>();
 
     }

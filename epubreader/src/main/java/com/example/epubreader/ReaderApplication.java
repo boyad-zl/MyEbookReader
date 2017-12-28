@@ -12,10 +12,15 @@ import com.example.epubreader.util.BookAttributeUtil;
 import com.example.epubreader.util.MyReadLog;
 import com.example.epubreader.view.book.BookDummyAbstractView;
 import com.example.epubreader.view.book.BookDummyView;
+import com.example.epubreader.view.book.BookReadPosition;
+import com.example.epubreader.view.widget.BookReadListener;
 import com.example.epubreader.view.widget.BookReaderView;
+import com.squareup.leakcanary.LeakCanary;
+import com.squareup.leakcanary.RefWatcher;
 
 import java.io.File;
 import java.io.FileFilter;
+import java.lang.ref.SoftReference;
 import java.util.regex.Pattern;
 
 /**
@@ -26,9 +31,11 @@ public class ReaderApplication extends Application {
     private static ReaderApplication sInstance;
     private BookModel bookModel;
     private BookDummyAbstractView dummyView;
-    private BookReaderView myWidget;
+//    private BookReadListener myWidget;
     private DisplayMetrics dm;
     private int coreNumber; // 手机CPU的数量
+    private RefWatcher watcher;
+    private SoftReference<BookReadListener> myWighet;
 
     /**
      * 初始化
@@ -39,6 +46,7 @@ public class ReaderApplication extends Application {
         MyReadLog.i("Application init:UId=" + Process.myUid() + ", Pid = " + Process.myPid() + ", Tid = " + Process.myTid());
         if (sInstance == null) {
             sInstance = this;
+            watcher = LeakCanary.install(this);
             BookAttributeUtil.setEmSize(20); //  TODO TEST 设置字体大小
             coreNumber = getNumCores();
             MyReadLog.i("coreNumber = " + coreNumber);
@@ -112,15 +120,24 @@ public class ReaderApplication extends Application {
         return dummyView;
     }
 
-    public BookReaderView getMyWidget() {
-        return myWidget;
+    public BookReadListener getMyWidget() {
+        return myWighet.get();
     }
 
-    public void setMyWidget(BookReaderView myWidget) {
-        this.myWidget = myWidget;
+    public void setMyWidget(BookReadListener myWidget) {
+        this.myWighet = new SoftReference<>(myWidget);
+//        this.myWidget = myWidget;
     }
 
     public int getCoreNumber() {
         return coreNumber;
+    }
+
+    public synchronized void gotoPosition(BookReadPosition position){
+
+    }
+
+    public RefWatcher getWatcher() {
+        return watcher;
     }
 }

@@ -24,19 +24,15 @@ public class BookPage {
     private int pageHeight;
     public int lGap, rGap, tGap, bGap; //左右上下的间距
     BodyControlTag bodyControlTag;
-    public static final byte POSITION_LEFT = 0;
-    public static final byte POSITION_TOP = 1;
-    public static final byte POSITION_RIGHT = 2;
-    public static final byte POSITION_BOTTOM = 3;
 
-    private Bitmap backgrounImage;
+    protected Bitmap backgrounImage;
+    protected int backgroundColor;
 
-    private int backgroundColor;
     private String startPosition; // 开始的位置
     private String endPosition; // 结束的位置
 
     private ArrayMap<String, BookTagAttribute> attributeMap;
-    private ArrayList<BookLineInfo> lineInfos = new ArrayList<>(); // 行信息
+    protected ArrayList<BookLineInfo> lineInfos = new ArrayList<>(); // 行信息
 
     /**
      * 获取指定宽度的页面， 页面高度不做限制
@@ -48,7 +44,7 @@ public class BookPage {
         bodyControlTag = controlTag;
         this.pageWidth = pageWidth;
         attributeMap = controlTag.getAttributeMap();
-        setGap();
+//        setGap();
     }
 
     /**
@@ -63,7 +59,7 @@ public class BookPage {
         this.pageWidth = pageWidth;
         this.pageHeight = pageHeight;
         attributeMap = controlTag.getAttributeMap();
-        setGap();
+//        setGap();
     }
 
     public BookPage(BookPage page, int pageHeight) {
@@ -80,7 +76,7 @@ public class BookPage {
     /**
      * 获取边距
      */
-    private void setGap() {
+    public void setGap() {
         lGap = rGap = BookUIHelper.dp2px(15);
         tGap = BookUIHelper.dp2px(35);
         bGap = BookUIHelper.dp2px(30);
@@ -185,7 +181,6 @@ public class BookPage {
                 }
             }
         }
-
     }
 
     /**
@@ -200,6 +195,10 @@ public class BookPage {
 
     public int getPageHeight() {
         return pageHeight;
+    }
+
+    public int getPageWidth() {
+        return pageWidth;
     }
 
     public String getStartPosition() {
@@ -226,9 +225,9 @@ public class BookPage {
      * @return
      */
     public boolean containElement(BookReadPosition readPosition) {
-        MyReadLog.d("startPosition = %s, endPosition = %s , readPosition = %s", startPosition, endPosition, readPosition.toString());
+//        MyReadLog.d("startPosition = %s, endPosition = %s , readPosition = %s", startPosition, endPosition, readPosition.toString());
         String contentElementPosition = readPosition.getContentIndex();
-        MyReadLog.i("contentElementPosition = " + contentElementPosition);
+//        MyReadLog.i("contentElementPosition = " + contentElementPosition);
         int contentElmentIndex = readPosition.getElementIndex();
         if (TextUtils.isEmpty(contentElementPosition) || contentElementPosition.equals("0")) {
             return true;
@@ -284,4 +283,5 @@ public class BookPage {
             return isContained;
         }
     }
+
 }

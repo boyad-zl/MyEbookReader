@@ -2,22 +2,20 @@ package com.example.epubreader.book;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.support.v4.content.PermissionChecker;
+import android.graphics.Rect;
 import android.support.v4.util.ArrayMap;
 import android.text.TextUtils;
+import android.util.SparseArray;
 
+import com.example.epubreader.ReaderApplication;
 import com.example.epubreader.book.css.BookCSSAttributeSet;
-import com.example.epubreader.book.toc.EpubPullParserUtil;
+import com.example.epubreader.util.EpubPullParserUtil;
 import com.example.epubreader.book.toc.TocElement;
 import com.example.epubreader.util.BookSettings;
 import com.example.epubreader.util.BookStingUtil;
 import com.example.epubreader.util.MyReadLog;
+import com.example.epubreader.view.book.BookCoverPage;
 import com.example.epubreader.view.book.BookReadPosition;
-import com.example.epubreader.view.widget.BookReaderView;
-
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
-import org.xmlpull.v1.XmlPullParserFactory;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -42,25 +40,19 @@ public class BookModel {
     public static final String META_INF_CONTAINER_XML = "META-INF/container.xml";
 
     private String epubPath; // epub文件的位置
-    public ArrayMap<String, BookResourceFile> textFileArrayMap = new ArrayMap<>(); //存放html资源文件
+    public ArrayMap<String, BookHtmlResourceFile> textFileArrayMap = new ArrayMap<>(); //存放html资源文件
     public ArrayMap<String, BookResourceFile> imageFileArrayMap = new ArrayMap<>(); // 存放图片资源文件
     public ArrayMap<String, BookResourceFile> ncxFileArrayMap = new ArrayMap<>(); // 存放目录文件
     public ArrayMap<String, BookResourceFile> cssFileArrayMap = new ArrayMap<>(); // 存放CSS资源文件
 
     public ArrayList<String> spinContentList = new ArrayList<>();
-
-    public String bookName;
-    public String bookWriter;
-    public String bookLanguage;
+    public Book book;
     public String bookCover;
-
     private String opfDir;
-    private String[] spinContent;
     private ZipFile zipFile;
-
-
     public BookCSSAttributeSet cssAttributeSet;
-    private TocElement tocElement;
+    private BookCoverPage coverPage;
+    public TocElement tocElement;
 
     public BookModel(String epubPath) {
         this.epubPath = epubPath;
@@ -82,6 +74,17 @@ public class BookModel {
             long startCategoryTime = System.currentTimeMillis();
             categoryBook(zipFile, metaFile);
             MyReadLog.i("category file cost time is " + (System.currentTimeMillis() - startCategoryTime));
+            MyReadLog.i("----开始解析逐个读取html文件");
+
+            ReaderApplication.getInstance().getDummyView().preparePage(getReadPosition());
+            ReaderApplication.getInstance().getMyWidget().reset();
+            ReaderApplication.getInstance().getMyWidget().repaint();
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    ReaderApplication.getInstance().getDummyView().calculateTotalPages();
+                }
+            }).start();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -90,6 +93,7 @@ public class BookModel {
 
     /**
      * 将epub里面的文件按照content.opf文件里面的注册信息，将里面用到的文件分类
+     *
      * @param zipFile
      * @param metaFile
      */
@@ -97,60 +101,57 @@ public class BookModel {
         InputStream inputStream = zipFile.getInputStream(metaFile);
         long start = System.currentTimeMillis();
         EpubPullParserUtil.parseMetaFile(inputStream, this);
-//        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
-//        String line;
-//        boolean metaDataReadStart = false;
-//        boolean manifestReadStart = false;
-//        boolean spineReadStart = false;
-//        boolean guideReadStart = false;
-//        int index = 0;
-//        while ((line = bufferedReader.readLine()) != null) {
-//            line = line.trim();
-//            if (line.startsWith("<metadata")) metaDataReadStart = true;
-//            if (metaDataReadStart) {
-//                getBookInfo(line);
-//                if (line.endsWith("</metadata>")) {
-//                    metaDataReadStart = false;
-//                }
-//            }
-//
-//            if (line.startsWith("<manifest>")) manifestReadStart = true;
-//            if (manifestReadStart) {
-//                getEpubResourceFile(line);
-//                if (line.endsWith("</manifest>")) {
-//                    manifestReadStart = false;
-////                    spinContent = new String[textFileArrayMap.size()];
-//                }
-//            }
-//
-//            if (line.startsWith("<spine")) spineReadStart = true;
-//            if (spineReadStart) {
-//                index = getReadSort(line, index);
-//                if (line.endsWith("</spine>")) spineReadStart = false;
-//            }
-//
-//            if (line.startsWith("<guide>")) guideReadStart = true;
-//            if (guideReadStart) {
-//                if (line.endsWith("</guide>")) guideReadStart = false;
-//            }
-//        }
-                    MyReadLog.i("metadata file cost time is " + (System.currentTimeMillis() - start));
-//        info.append("书名：" + bookName + " , 作者：" + bookWriter + " , 语言：" + bookLanguage + " , cover:" + bookCover);
-//        MyReadLog.i("text file size is " + textFileArrayMap.size());
-//        MyReadLog.i("img file size is " + imageFileArrayMap.size());
-//        MyReadLog.i("ncx file size is " + ncxFileArrayMap.size());
-//        MyReadLog.i("css file size is " + cssFileArrayMap.size());
+
+        if (!TextUtils.isEmpty(bookCover)) {
+            createCoverPage();
+            MyReadLog.i("createCoverPage");
+            if (coverPage != null) {
+                ReaderApplication.getInstance().getDummyView().setCoverPage(coverPage);
+            }
+        }
+        MyReadLog.i("metadata file cost time is " + (System.currentTimeMillis() - start));
         if (cssFileArrayMap.size() > 0) {
             loadCSSAttributes(); // 加载CSS文件
         }
-        if (ncxFileArrayMap.size() > 0){
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    loadTOCFile(); //加载目录文件
-                }
-            }).start();
+        if (ncxFileArrayMap.size() > 0) {
+//            new Thread(new Runnable() {
+//                @Override
+//                public void run() {
+            loadTOCFile(); //加载目录文件
+//                }
+//            }).start();
         }
+    }
+
+    /**
+     * 创建封面页
+     */
+    private void createCoverPage() {
+        int[] coverSize = new int[2];
+        InputStream inputStream;
+        try {
+            BookResourceFile coverFile = imageFileArrayMap.get(bookCover);
+            inputStream = zipFile.getInputStream(zipFile.getEntry(coverFile.inFilePath));
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            Rect outPaddingRect = new Rect();
+            BitmapFactory.decodeStream(inputStream, outPaddingRect, options);
+            coverSize[0] = options.outWidth;
+            coverSize[1] = options.outHeight;
+//            MyReadLog.d("width = %d, height = %d", coverSize[0], coverSize[1]);
+        } catch (IOException e) {
+            e.printStackTrace();
+            coverSize[0] = 0;
+            coverSize[1] = 0;
+        }
+        BookResourceFile coverFile = imageFileArrayMap.get(bookCover);
+        if (coverFile != null && coverSize[0] > 0 && coverSize[1] > 0) {
+            coverPage = BookCoverPage.createBookCoverPage(coverFile.inFilePath, coverSize);
+        }
+    }
+
+    public BookCoverPage getCoverPage() {
+        return coverPage;
     }
 
     /**
@@ -160,7 +161,8 @@ public class BookModel {
     private void loadTOCFile() {
         long start = System.currentTimeMillis();
         try {
-            tocElement = EpubPullParserUtil.parseTocFile(zipFile.getInputStream(zipFile.getEntry(ncxFileArrayMap.valueAt(0).inFilePath)));
+            tocElement = EpubPullParserUtil.parseTocFile(zipFile.getInputStream(zipFile.getEntry(ncxFileArrayMap.valueAt(0).inFilePath)), this);
+//            MyReadLog.i("first Element " + (tocElement.tocElements.get(0).getName()));
         } catch (IOException e) {
             tocElement = null;
             e.printStackTrace();
@@ -213,11 +215,11 @@ public class BookModel {
             }
             filePath = getRealPath(filePath);
             if (mediaType.equals("application/xhtml+xml")) {
-                textFileArrayMap.put(id, new BookResourceFile(id, href, mediaType, filePath));
+                textFileArrayMap.put(id, new BookHtmlResourceFile(id, href, mediaType, filePath));
             } else if (mediaType.equals("image/png") || mediaType.equals("image/jpeg")) {
                 imageFileArrayMap.put(id, new BookResourceFile(id, href, mediaType, filePath));
             } else if (mediaType.equals("application/x-dtbncx+xml")) {
-                MyReadLog.d("id = %s, href = %s, mediaType = %s, filePath = %s" , id, href, mediaType, filePath);
+                MyReadLog.d("id = %s, href = %s, mediaType = %s, filePath = %s", id, href, mediaType, filePath);
                 ncxFileArrayMap.put(id, new BookResourceFile(id, href, mediaType, filePath));
             } else if (mediaType.equals("text/css")) {
                 cssFileArrayMap.put(id, new BookResourceFile(id, href, mediaType, filePath));
@@ -241,24 +243,6 @@ public class BookModel {
         return filePath;
     }
 
-    /**
-     * TODO TEST 还有很多属性没有添加识别（UID）
-     * 根据字符串的信息，获取电子书的信息（读者，UUID，书名）
-     *
-     * @param line
-     */
-    private void getBookInfo(String line) {
-        if (line.startsWith("<dc:title") && line.endsWith("</dc:title>")) {
-            bookName = BookStingUtil.getDataValue(line, ">", "</", 0);
-            MyReadLog.i("bookName ->" + bookName);
-        } else if (line.startsWith("<dc:creator") && line.endsWith("</dc:creator>")) {
-            bookWriter = BookStingUtil.getDataValue(line, ">", "</", 0);
-        } else if (line.startsWith("<dc:language") && line.endsWith("</dc:language>")) {
-            bookLanguage = BookStingUtil.getDataValue(line, ">", "</", 0);
-        } else if (line.startsWith("<meta nameStr=") && line.endsWith("/>")) {
-            bookCover = BookStingUtil.getDataValue(line, "\"", "\"", line.indexOf("content"));
-        }
-    }
 
     /**
      * 获取Content.Opf文件的名称（例如：OEBPS/content.opf）
@@ -289,11 +273,12 @@ public class BookModel {
 
     /**
      * 获取图片资源
+     *
      * @param imgPath
      * @return
      */
-    public Bitmap getBitmap(String imgPath){
-        if (imageFileArrayMap.containsKey(imgPath)){
+    public Bitmap getBitmap(String imgPath) {
+        if (imageFileArrayMap.containsKey(imgPath)) {
             try {
                 Bitmap bitmap = BitmapFactory.decodeStream(zipFile.getInputStream(zipFile.getEntry(imageFileArrayMap.get(imgPath).inFilePath)));
                 return bitmap;
@@ -310,7 +295,7 @@ public class BookModel {
     public synchronized InputStream getTextContent() {
         String contentId = spinContentList.get(75);
 //        String contentId = spinContent[75];
-        if (textFileArrayMap.containsKey(contentId)){
+        if (textFileArrayMap.containsKey(contentId)) {
             try {
                 return zipFile.getInputStream(zipFile.getEntry(textFileArrayMap.get(contentId).inFilePath));
             } catch (IOException e) {
@@ -324,13 +309,14 @@ public class BookModel {
 
     /**
      * 获取指定位置的HTML内容
+     *
      * @param htmlIndex
      * @return
      */
     public synchronized InputStream getTextContent(int htmlIndex) {
         String contentId = spinContentList.get(htmlIndex);
 //        String contentId = spinContent[htmlIndex];
-        if (textFileArrayMap.containsKey(contentId)){
+        if (textFileArrayMap.containsKey(contentId)) {
             try {
                 return zipFile.getInputStream(zipFile.getEntry(textFileArrayMap.get(contentId).inFilePath));
             } catch (IOException e) {
@@ -344,25 +330,31 @@ public class BookModel {
 
     /**
      * 获取epub内的根目录名称
+     *
      * @return
      */
-    public String getOpfDir(){
+    public String getOpfDir() {
         return opfDir;
     }
 
     /**
      * 获取图片相关的流数据
+     *
      * @param imagePathStr
      * @return
      */
-    public InputStream getImageInputStream(String imagePathStr) {
-        if (imagePathStr.startsWith("../")){
-            imagePathStr = opfDir + imagePathStr.substring(2);
+    public synchronized InputStream getImageInputStream(String imagePathStr) {
+        if (!imagePathStr.startsWith(opfDir)) {
+            if (imagePathStr.startsWith("../")) {
+                imagePathStr = opfDir + imagePathStr.substring(2);
+            } else {
+                imagePathStr = opfDir + "/" + imagePathStr;
+            }
         }
         try {
-            MyReadLog.i("image path = " + imagePathStr);
+//            MyReadLog.i("image path = " + imagePathStr);
             ZipEntry imageEntry = zipFile.getEntry(imagePathStr);
-            if (imageEntry != null){
+            if (imageEntry != null) {
                 return zipFile.getInputStream(imageEntry);
             }
         } catch (IOException e) {
@@ -373,23 +365,24 @@ public class BookModel {
 
     /**
      * 获取电子书路径
+     *
      * @return
      */
     public String getEpubPath() {
         return epubPath;
     }
 
-    public BookReadPosition getReadPosition(){
-        BookReadPosition bookReadPosition = new BookReadPosition(25, "0", 0);
+    public BookReadPosition getReadPosition() {
+        BookReadPosition bookReadPosition = new BookReadPosition(0, "0", 0);
         String positionStr = BookSettings.getReadBookPosition();
         if (!TextUtils.isEmpty(positionStr)) {
             int linkIndex = positionStr.indexOf("-");
             if (linkIndex > -1) {
                 bookReadPosition.setPagePosition(Integer.valueOf(positionStr.substring(0, linkIndex)));
-                int slantIndex = positionStr.indexOf("/", linkIndex) ;
+                int slantIndex = positionStr.indexOf("/", linkIndex);
                 if (slantIndex > -1) {
                     String contentElement = positionStr.substring(linkIndex + 1, slantIndex);
-                    int  elementIndex = Integer.valueOf(positionStr.substring(slantIndex + 1));
+                    int elementIndex = Integer.valueOf(positionStr.substring(slantIndex + 1));
                     bookReadPosition.setContentIndex(contentElement);
                     bookReadPosition.setElementIndex(elementIndex);
 //                    bookReadPosition = new BookReadPosition(pagePosition, contentElement, slantIndex);
@@ -400,7 +393,7 @@ public class BookModel {
         return bookReadPosition;
     }
 
-    public void setReadPosition(String position){
+    public void saveReadPosition(String position) {
         if (!TextUtils.isEmpty(position)) {
             BookSettings.setReadPosition(position);
         }
@@ -409,5 +402,60 @@ public class BookModel {
     public int getSpinSize() {
         return spinContentList.size();
 //        return spinContent.length;
+    }
+
+    /**
+     * 根据路径推算html在spine中的顺序
+     *
+     * @param path
+     * @return
+     */
+    public int getSpinePageIndex(String path) {
+        int pageIndex = -1;
+        if (!path.startsWith(getOpfDir())) {
+            if (path.startsWith("../")) {
+                path = getOpfDir() + path.substring(2);
+            } else {
+                path = getOpfDir() + "/" + path;
+            }
+        }
+//        String resourceId = "";
+        for (int i = 0; i < textFileArrayMap.size(); i++) {
+            BookHtmlResourceFile file = textFileArrayMap.valueAt(i);
+            if (file.inFilePath.equals(path)) {
+//                resourceId = textFileArrayMap.keyAt(i);
+                pageIndex = file.getSpinIndex();
+                break;
+            }
+        }
+//        if (TextUtils.isEmpty(resourceId)) return pageIndex;
+//        for (int i = 0; i < spinContentList.size(); i++) {
+//            String spineId = spinContentList.get(i);
+//            if (spineId.equals(resourceId)) {
+//                pageIndex = i;
+//                break;
+//            }
+//        }
+        return pageIndex;
+    }
+
+    /**
+     * 获取 inHtmlId 为键 在tocElement中的位置 为value 的集合
+     *
+     * @param htmlIndex
+     * @return
+     */
+    public ArrayMap<String, Integer> getHtmlTocElement(int htmlIndex) {
+        ArrayMap<String, Integer> arrayMap = null;
+        for (int i = 0; i < tocElement.getCount(true); i++) {
+            TocElement childElement = tocElement.getElementAt(i, true);
+            if (htmlIndex == childElement.getHtmlSpinIndex()) {
+                if (arrayMap == null) {
+                    arrayMap = new ArrayMap<>();
+                }
+                arrayMap.put(TextUtils.isEmpty(childElement.getInHtmlId()) ? " " : childElement.getInHtmlId(), i);
+            }
+        }
+        return arrayMap;
     }
 }

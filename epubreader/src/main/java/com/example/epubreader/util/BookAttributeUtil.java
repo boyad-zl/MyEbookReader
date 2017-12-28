@@ -4,6 +4,8 @@ import android.support.v4.util.ArrayMap;
 import com.example.epubreader.ReaderApplication;
 import com.example.epubreader.book.css.BookTagAttribute;
 
+import java.util.IllegalFormatCodePointException;
+
 /**
  * 属性哦工具类
  * Created by Boyad on 2017/11/10.
@@ -25,6 +27,8 @@ public class BookAttributeUtil {
 
     public static int ONE_EM_LENGTH ;
     public static int settingFontSize = 20;
+    public static final int MIN_SETTING_FONT_SIZE = 12; //最小字体大小
+    public static final int MAX_SETTING_FONT_SIZE = 28; // 最大字体大小
 
 
     /**
@@ -32,6 +36,8 @@ public class BookAttributeUtil {
      * @param size
      */
     public static void setEmSize(int size) {
+        if (size > MAX_SETTING_FONT_SIZE) size = MAX_SETTING_FONT_SIZE;
+        if (size < MIN_SETTING_FONT_SIZE) size = MIN_SETTING_FONT_SIZE;
         settingFontSize = size;
         MyReadLog.i("settingFontSize = " + settingFontSize);
         ONE_EM_LENGTH = (int) (ReaderApplication.getInstance().getWindowSize().density * settingFontSize);
@@ -78,6 +84,7 @@ public class BookAttributeUtil {
      * @return
      */
     public static int getFontSize(ArrayMap<String, BookTagAttribute> attributeArrayMap) {
+        if (attributeArrayMap == null) return getLength("1em", ONE_EM_LENGTH);
         BookTagAttribute attribute = attributeArrayMap.get("font-size");
         if (attribute == null) {
             return getLength("1em", ONE_EM_LENGTH);
@@ -94,6 +101,7 @@ public class BookAttributeUtil {
      * @return
      */
     public static int getTextIndent(ArrayMap<String, BookTagAttribute> attributeArrayMap , int max, int fontSize) {
+        if (attributeArrayMap == null) return 0;
         BookTagAttribute attribute = attributeArrayMap.get("text-indent");
         if (attribute == null) {
             return 0;
@@ -118,6 +126,7 @@ public class BookAttributeUtil {
      * @return
      */
     public static int getMargin(ArrayMap<String, BookTagAttribute> attributeArrayMap, byte position, int max) {
+        if (attributeArrayMap == null) return 0;
         BookTagAttribute attribute = null;
         switch (position) {
             case POSITION_TOP:
@@ -149,6 +158,7 @@ public class BookAttributeUtil {
      * @return
      */
     public static int getPadding(ArrayMap<String, BookTagAttribute> attributeArrayMap, byte position, int max) {
+        if (attributeArrayMap == null) return 0;
         BookTagAttribute attribute = null;
         switch (position) {
             case POSITION_TOP:
@@ -179,6 +189,7 @@ public class BookAttributeUtil {
      * @return
      */
     public static int getWidth(ArrayMap<String, BookTagAttribute> attributeSet, int pageWidth) {
+        if (attributeSet == null) return -1;
         BookTagAttribute attribute = attributeSet.get("width");
         if (attribute != null) {
             if (attribute.valueStr.equals("auto")) return -1;
@@ -194,6 +205,7 @@ public class BookAttributeUtil {
      * @return
      */
     public static int getHeight(ArrayMap<String, BookTagAttribute> attributeSet, int pageHeight) {
+        if (attributeSet == null) return -1;
         BookTagAttribute attribute = attributeSet.get("height");
         if (attribute != null) {
             if (attribute.valueStr.equals("auto")) return -1;
@@ -207,6 +219,7 @@ public class BookAttributeUtil {
      * @param attributeSet
      */
     public static byte getTextAlign(ArrayMap<String, BookTagAttribute> attributeSet) {
+        if (attributeSet == null) return TEXT_ALIGN_JUSTIFY;
         BookTagAttribute attribute = attributeSet.get("text-align");
         if (attribute == null) return TEXT_ALIGN_JUSTIFY;
 //        MyReadLog.i(attribute.valueStr);
@@ -232,8 +245,8 @@ public class BookAttributeUtil {
      * @return
      */
     public static float getLineHeight(ArrayMap<String, BookTagAttribute> attributeSet) {
-        float rate = LINE_HEIGHT_NORMAL;
-//        if (true) return 2.0f;
+        float rate = LINE_HEIGHT_NORMAL + 0.5f;
+        if (true) return 1.5f;
         if (attributeSet == null) return rate;
         BookTagAttribute attribute = attributeSet.get("line-height");
         if (attribute == null) return rate;
@@ -246,7 +259,7 @@ public class BookAttributeUtil {
             }
         } catch (NumberFormatException e){
         }
-        return rate;
+        return rate + 0.5f;
     }
 
     /**

@@ -21,13 +21,21 @@ public class BookTextWordElement extends BookTextBaseElement {
     private final int length;
     private boolean isSingleChinese = false;
 
-
     public BookTextWordElement(String s, BookContentElement bookContentElement) {
         super(bookContentElement);
         data = s.toCharArray();
         offset = 0;
         length = data.length;
         isSingleChinese = false;
+//        this.contentElement = contentElement;
+    }
+
+    public BookTextWordElement(char c, BookContentElement bookContentElement, boolean isSingleChinese) {
+        super(bookContentElement);
+        data = new char[]{c};
+        offset = 0;
+        length = data.length;
+        this.isSingleChinese = isSingleChinese;
 //        this.contentElement = contentElement;
     }
 
@@ -65,6 +73,9 @@ public class BookTextWordElement extends BookTextBaseElement {
 //        width = BookStingUtil.getStringWidth(fontSize, data, 0, length);
 //        descent = (int) (ReaderApplication.getInstance().getWindowSize().density * 3 + 0.5f);
 //        height = fontSize;
+        width = (int) ((baseWidth / 100) * fontSize + 0.5f);
+        descent = (int) (ReaderApplication.getInstance().getWindowSize().density * 3 + 0.5f);
+        height = fontSize;
         return width;
     }
 

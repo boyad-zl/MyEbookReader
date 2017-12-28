@@ -13,25 +13,24 @@ import java.util.ArrayList;
  */
 
 public class BookLineInfo {
-    int lineHeight;
+    int lineHeight, lineWidth;
     int x;
     int y;
     public float lineHeightRate;
     public int topGap, bottomGap;
-    private int lineWidth;
     ArrayList<BookTextBaseElement> elements;
-
 
     private int textElementTopY, textElementBottomY, contentElementTopY, contentElementBottomY;
     private int maxTextElementHeight= 0;
     private int maxOtherElementHeight = 0;
+
+    private int realStartX,realEndX, realStartY, realEndY; //实际开始的X
 
     public BookLineInfo(int lineWidth, int lineInfoStartX, int lineInfoStartY) {
         this.lineWidth = lineWidth;
         this.x = lineInfoStartX;
         this.y = lineInfoStartY;
         elements = new ArrayList<>();
-
         textElementTopY = textElementBottomY = contentElementTopY = contentElementBottomY = lineInfoStartY;
     }
 
@@ -62,18 +61,29 @@ public class BookLineInfo {
         return lineHeight;
     }
 
+    public int getRealStartX() {
+        return realStartX;
+    }
+
+    public int getRealEndX() {
+        return realEndX;
+    }
+
     /**
      * 往行信息里面添加显示元素
      *
      * @param element
      */
     public void addTextElement(BookTextBaseElement element) {
+        if (elements.isEmpty()) {
+            realStartX = element.x;
+        }
+        realEndX = element.x + element.width;
         elements.add(element);
         if (element instanceof BookTextImageElement) {
 //            MyReadLog.i("图片element height = " + element.height);
             contentElementTopY = Math.min(contentElementTopY, element.y);
             contentElementBottomY = Math.max(contentElementBottomY, element.y + element.height);
-
             maxOtherElementHeight = Math.max(maxOtherElementHeight, element.height);
         } else {
             contentElementTopY = Math.min(contentElementTopY, element.y - element.height);
@@ -95,6 +105,7 @@ public class BookLineInfo {
     public void rebuildLineInfo(int gap) {
 //        MyReadLog.i("gap ->" + gap + "， size is " + elements.size());
         if (elements.size() > 1) {
+            realEndX = x + lineWidth;
             int averageGap = gap / elements.size();
             int excessGap = gap % elements.size();
             for (int i = 0; i < elements.size(); i++) {
@@ -215,13 +226,18 @@ public class BookLineInfo {
                     if (elements.size() == 1) {
                         int rightGap = lineWidth - (firstElement.x - x) - firstElement.width;
                         if (rightGap > firstElement.x - x) {
-                            firstElement.x = firstElement.x + (rightGap - (firstElement.x - x)) / 2;
+                            int offset = (rightGap - (firstElement.x - x)) / 2;
+                            firstElement.x = firstElement.x + offset;
+                            realStartX = realStartX + offset;
+                            realEndX = realEndX + offset;
                         }
                     } else {
                         BookTextBaseElement lastElement = elements.get(elements.size() - 1);
                         int rightGap = lineWidth - (lastElement.x - x) - lastElement.width;
                         if (rightGap > firstElement.x - x) {
                             int moveX = (rightGap - (firstElement.x - x)) / 2;
+                            realStartX = realStartX + moveX;
+                            realEndX = realEndX + moveX;
                             for (BookTextBaseElement element : elements) {
                                 element.x = element.x + moveX;
                             }
@@ -233,6 +249,8 @@ public class BookLineInfo {
                 if (elements.size() > 0) {
                     BookTextBaseElement lastElement = elements.get(elements.size() - 1);
                     int moveX = (lineWidth + x - lastElement.x - lastElement.width);
+                    realStartX = realStartX + moveX;
+                    realEndX = realEndX + moveX;
                     for (BookTextBaseElement element : elements) {
                         element.x = element.x + moveX;
                     }

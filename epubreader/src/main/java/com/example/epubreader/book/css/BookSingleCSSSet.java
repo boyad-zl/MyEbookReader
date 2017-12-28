@@ -3,6 +3,8 @@ package com.example.epubreader.book.css;
 import android.support.v4.util.ArrayMap;
 import android.text.TextUtils;
 
+import com.example.epubreader.util.MyReadLog;
+
 /**
  * 单一CSS文件的实体类
  * Created by Boyad on 2017/11/6.
@@ -27,7 +29,11 @@ public class BookSingleCSSSet {
 
 
     public void addClass(BookClassSet classSet){
-        classes.put(classSet.tagName + "." + classSet.getClassName(), classSet);
+        if (classSet.className == null || TextUtils.isEmpty(classSet.className)) {
+            classes.put("." + classSet.getClassName(), classSet);
+        } else {
+            classes.put(classSet.tagName + "." + classSet.getClassName(), classSet);
+        }
     }
 
     public void loadDefaultAttribute(String[] tags, BookTagAttribute tagAttribute) {
@@ -49,7 +55,7 @@ public class BookSingleCSSSet {
      * @return
      */
     public BookClassSet getDefaultTagAttributes(String tag) {
-        ArrayMap<String, BookTagAttribute> attributes = new ArrayMap<>();
+//        ArrayMap<String, BookTagAttribute> attributes = new ArrayMap<>();
         if (rootClasses != null && rootClasses.containsKey(tag)){
             return rootClasses.get(tag);
         }
@@ -63,7 +69,7 @@ public class BookSingleCSSSet {
      * @return
      */
     public boolean containClass(String className, String tag) {
-        return classes.containsKey(tag + "." + className);
+        return classes.containsKey(tag + "." + className) || classes.containsKey("." + className);
     }
 
     /**
@@ -74,6 +80,10 @@ public class BookSingleCSSSet {
      */
     public BookClassSet getBookClassSet(String classValue, String tag) {
         String key = tag + "." + classValue;
-        return classes.get(key);
+        if (classes.containsKey(key)) {
+            return classes.get(key);
+        } else {
+            return classes.get(("." + classValue));
+        }
     }
 }

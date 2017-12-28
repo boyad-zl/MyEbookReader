@@ -2,6 +2,8 @@ package com.example.epubreader.util;
 
 import android.graphics.Paint;
 
+import org.w3c.dom.CharacterData;
+
 import java.text.SimpleDateFormat;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -12,7 +14,11 @@ import java.util.regex.Pattern;
 
 public class BookStingUtil {
     private final static SimpleDateFormat hourMinuteFormat = new SimpleDateFormat("HH:mm");
-    private static final String REG_EX = "[\\w]"; // 用于正则匹配数字或者字母
+    public static final int SYMBOL_START = 0; // 开始的标点符号
+    public static final int SYMBOL_END = 1;  // 结束的标点符号
+    public static final int SYMBOL_NORMAL = 2; // 普通的标点符号
+    public static final int SYMBOL_OTHER = 3; // 其他的标点符号（单独占一个位置的标点符号）
+    public static final String HTML_REGEX = "^([hH][tT]{2}[pP]://|[hH][tT]{2}[pP][sS]://)(([A-Za-z0-9-~]+).)+([A-Za-z0-9-~\\\\/])+$" ;
 
 
     /**
@@ -111,6 +117,7 @@ public class BookStingUtil {
      * @return
      */
     public static boolean isOnlyChineseSymbols(char c) {
+//        Character character = Character.valueOf(c);
         Character.UnicodeBlock ub = Character.UnicodeBlock.of(c);
         if (ub == Character.UnicodeBlock.CJK_SYMBOLS_AND_PUNCTUATION || ub == Character.UnicodeBlock.GENERAL_PUNCTUATION
                 || ub == Character.UnicodeBlock.HALFWIDTH_AND_FULLWIDTH_FORMS) {
@@ -119,18 +126,6 @@ public class BookStingUtil {
             return true;
         }
         return false;
-    }
-
-    /**
-     * 校验某个字符是否是a-z、A-Z、_、0-9
-     *
-     * @param c 被校验的字符
-     * @return true 代表符合条件
-     */
-    public static boolean isWord(char c) {
-        Pattern p = Pattern.compile(REG_EX);
-        Matcher m = p.matcher("" + c);
-        return m.matches();
     }
 
     /**
@@ -156,5 +151,18 @@ public class BookStingUtil {
     public static int getStringWidth(int fontSize, char[] content, int start, int length, Paint paint) {
 //        paint.setTextSize(fontSize);
         return (int) paint.measureText(content, start, length);
+    }
+
+    /**
+     * 判断字符串是否是网址
+     * @param hrefChip
+     * @return
+     */
+    public static boolean isWebUrl(String hrefChip) {
+        boolean isURl ;
+        Pattern pat = Pattern.compile(HTML_REGEX);
+        Matcher mat = pat.matcher(hrefChip.trim());
+        isURl = mat.matches();
+        return isURl;
     }
 }

@@ -19,9 +19,14 @@ public abstract class BookTextBaseElement {
     public int descent; // 上下偏移
     BookContentElement contentElement;
     int index = 0;
+    float baseWidth = 0;
+    boolean haveHref = false;
 
     public BookTextBaseElement(BookContentElement contentElement) {
         this.contentElement = contentElement;
+        if (contentElement != null) {
+            haveHref = contentElement.isLink();
+        }
     }
 
     /**
@@ -49,13 +54,16 @@ public abstract class BookTextBaseElement {
      */
     public ArrayMap<String, BookTagAttribute> getAttributeSet() {
         ArrayMap<String, BookTagAttribute> result = new ArrayMap<>();
+        if (contentElement == null) return result;
         String position = contentElement.getPosition();
 //        MyReadLog.i(position);
         String[] positions = position.split(":");
         for (int i = positions.length - 1; i > 0; i--) {
             BookContentElement parent = contentElement.getParent(i);
-            SimpleArrayMap<String, BookTagAttribute> arrayMap = parent.getControlTag().getAttributeMap();
-            result.putAll(arrayMap);
+            if (parent != null && parent.getControlTag() != null) {
+                SimpleArrayMap<String, BookTagAttribute> arrayMap = parent.getControlTag().getAttributeMap();
+                result.putAll(arrayMap);
+            }
         }
         if (contentElement.getControlTag() != null) {
             SimpleArrayMap<String, BookTagAttribute> currentContentElementAttributes = contentElement.getControlTag().getAttributeMap();
@@ -75,6 +83,10 @@ public abstract class BookTextBaseElement {
      */
     public void setIndex(int index) {
         this.index = index;
+    }
+
+    public void setBaseWidth(float baseWidth) {
+        this.baseWidth = baseWidth;
     }
 
     /**
@@ -109,11 +121,15 @@ public abstract class BookTextBaseElement {
      * @return
      */
     public boolean isHasLink(){
-        if (contentElement.isLink()){
-            return true;
-        } else {
-            return false;
+        return haveHref;
+    }
+
+    public String getLinkHref() {
+        String href = "";
+        if (haveHref) {
+            href = contentElement.getHrefPath();
         }
+        return href;
     }
 
     /**
@@ -125,4 +141,7 @@ public abstract class BookTextBaseElement {
     }
 
 
+    public BookContentElement getContentElement() {
+        return contentElement;
+    }
 }

@@ -1,6 +1,7 @@
 package com.example.epubreader.book;
 
 import android.support.v4.util.ArrayMap;
+import android.support.v4.util.SimpleArrayMap;
 import android.text.TextUtils;
 
 import com.example.epubreader.book.css.BookTagAttribute;
@@ -11,8 +12,7 @@ import com.example.epubreader.book.tag.ImageControlTag;
 import com.example.epubreader.book.tag.LineBreakControlTag;
 import com.example.epubreader.book.tag.LinkControlTag;
 import com.example.epubreader.book.tag.ParagraphControlTag;
-import com.example.epubreader.util.BookStingUtil;
-import com.example.epubreader.util.MyReadLog;
+import com.example.epubreader.util.StringWidthMeasureHelper;
 import com.example.epubreader.view.book.element.BookTextBaseElement;
 import com.example.epubreader.view.book.element.BookTextImageElement;
 import com.example.epubreader.view.book.element.BookTextLineBreakElement;
@@ -32,6 +32,7 @@ public class BookContentElement {
     private BookContentElement parent = null;
     private String position = "0";
     private int index = 0;
+    private ArrayList<BookTextBaseElement> words;
 
     /**
      * 构成纯文字的元素
@@ -65,10 +66,13 @@ public class BookContentElement {
         }
         BookContentElement bookContentElement = new BookContentElement(this, contentChar);
         bookContentElement.setIndex(contentElements.size());
+//        bookContentElement.handleWordElements();
+        bookContentElement.getOnlyWordElements();
 //        MyReadLog.i("size = " + contentElements.size());
         contentElements.add(bookContentElement);
 
     }
+
 
     /**
      * 向当前元素中添加子元素
@@ -171,101 +175,256 @@ public class BookContentElement {
     }
 
     /**
+     *  处理content
+     * 将String转换成 ArrayList<BookTextBaseElement> words， 并测量每个BookTextBaseElement的baseWidth
+     * @see
+     */
+    public void getOnlyWordElements() {
+        if (words == null) {
+            words = new ArrayList<>();
+        }
+        if (!TextUtils.isEmpty(content)) {
+            char[] contentChars = content.toCharArray();
+            int index = 0;
+            StringBuffer sb = new StringBuffer();
+            BookTextBaseElement element;
+            int lastCharType = -1;
+            boolean needBreakFromLastChar = false; // 是否需要从上一个元素开始将StringBuffer里面的字符串转化成BookTextWordElement
+            boolean needIgnoreCurrentChar = false; // 是否需要忽略当前元素
+            while (index < contentChars.length) {
+                if (contentChars[index] != '&') {
+                    sb.append(contentChars[index]);
+                    int currentCharType = Character.getType(contentChars[index]);
+                    if (lastCharType != -1 && sb.length() > 0) {
+                        switch (currentCharType) {
+                            case Character.DECIMAL_DIGIT_NUMBER:
+                                if (lastCharType != Character.DECIMAL_DIGIT_NUMBER) {
+                                    needBreakFromLastChar = true;
+                                }
+                                break;
+                            case Character.OTHER_LETTER:
+                                if (lastCharType != Character.START_PUNCTUATION
+                                        && lastCharType != Character.INITIAL_QUOTE_PUNCTUATION
+                                        && lastCharType != Character.SPACE_SEPARATOR) {
+                                    needBreakFromLastChar = true;
+                                }
+                                break;
+                            case Character.UPPERCASE_LETTER:
+                            case Character.LOWERCASE_LETTER:
+//                        case Character.CONNECTOR_PUNCTUATION:
+                                if (lastCharType != Character.UPPERCASE_LETTER && lastCharType != Character.LOWERCASE_LETTER) {
+                                    needBreakFromLastChar = true;
+                                }
+                                break;
+                            case Character.START_PUNCTUATION:
+                            case Character.INITIAL_QUOTE_PUNCTUATION:
+                                if (lastCharType != Character.START_PUNCTUATION && lastCharType != Character.INITIAL_QUOTE_PUNCTUATION) {
+                                    needBreakFromLastChar = true;
+                                }
+                                break;
+                            case Character.END_PUNCTUATION:
+                            case Character.FINAL_QUOTE_PUNCTUATION:
+                                break;
+                            case Character.SPACE_SEPARATOR:
+                            case Character.CONTROL:
+                                if (lastCharType == Character.CONTROL || lastCharType == Character.SPACE_SEPARATOR){
+                                    needIgnoreCurrentChar = true;
+                                }
+                                needBreakFromLastChar = true;
+                                break;
+                            case Character.OTHER_PUNCTUATION:
+                            case Character.OTHER_SYMBOL:
+                                break;
+                            case Character.DASH_PUNCTUATION:
+                                if (lastCharType != Character.DASH_PUNCTUATION)
+                                    needBreakFromLastChar = true;
+                                break;
+                            default:
+                                break;
+                        }
+                        if (needBreakFromLastChar) {
+                            String word = sb.substring(0, sb.length() - 1);
+                            element = new BookTextWordElement(word, this);
+//                        element.setBaseWidth(paint.measureText(word));
+                            element.setBaseWidth(StringWidthMeasureHelper.getStringWidth(word));
+                            element.setIndex(index - sb.length() + 1);
+                            sb.delete(0, sb.length() - 1);
+                            if (!needIgnoreCurrentChar) {
+                                words.add(element);
+                            }
+                            needIgnoreCurrentChar = false;
+                            needBreakFromLastChar = false;
+                        }
+                    }
+                    lastCharType = currentCharType;
+                    index++;
+                } else {
+                    if (sb.length() > 0) {
+                        element = new BookTextWordElement(sb.toString(), this);
+                        element.setIndex(index - sb.length());
+                        element.setBaseWidth(StringWidthMeasureHelper.getStringWidth(sb.toString()));
+                        sb.setLength(0);
+                        words.add(element);
+                    }
+                    if (contentChars.length - index >= 6 && (String.valueOf(contentChars, index, 6).equals("&nbsp;"))) {
+//                    MyReadLog.i("subString = " + String.valueOf(contentChars, index, index + 6) + " index = " + index + "index + 6 = " + (index + 6));
+                        element = new BookTextNbspElement(this);
+                        element.setIndex(index);
+                        index = index + 6;
+                        lastCharType = -1;
+                    } else {
+                        element = new BookTextWordElement("&", this);
+                        element.setIndex(index);
+                        element.setBaseWidth(StringWidthMeasureHelper.getCharWidth('&'));
+                        index = index + 1;
+                        lastCharType = Character.OTHER_PUNCTUATION;
+                    }
+                    words.add(element);
+                }
+            }
+            if (sb.length() > 0) {
+                element = new BookTextWordElement(sb.toString(), this);
+                element.setIndex(index - sb.length() + 1);
+                element.setBaseWidth(StringWidthMeasureHelper.getStringWidth(sb.toString()));
+                sb.setLength(0);
+                words.add(element);
+            }
+        }
+    }
+
+    /**
+     * 处理 content 不是空的BookContentElement 将其内部的字符串转换成 ArrayList<BookTextBaseElement> words,
+     * 每个并设置好BookTextBaseElement的baseWidth
+     *
+     * @return
+     */
+    public void handleWordElements() {
+        if (words == null) {
+            words = new ArrayList<>();
+        }
+        if (!TextUtils.isEmpty(content)) {
+            char[] contentChars = content.toCharArray();
+            float[] charWidths = StringWidthMeasureHelper.getStringCharWidths(content);
+            int index = 0;
+            StringBuffer sb = new StringBuffer();
+            BookTextBaseElement element;
+            int lastCharType = -1;
+            boolean needBreakFromLastChar = false; // 是否需要从上一个元素开始将StringBuffer里面的字符串转化成BookTextWordElement
+            while (index < contentChars.length) {
+                if (contentChars[index] != '&') {
+                    sb.append(contentChars[index]);
+                    int currentCharType = Character.getType(contentChars[index]);
+                    if (lastCharType != -1 && sb.length() > 0) {
+
+                        switch (currentCharType) {
+                            case Character.DECIMAL_DIGIT_NUMBER:
+                                if (lastCharType != Character.DECIMAL_DIGIT_NUMBER) {
+                                    needBreakFromLastChar = true;
+                                }
+                                break;
+                            case Character.OTHER_LETTER:
+                                if (lastCharType != Character.START_PUNCTUATION
+                                        && lastCharType != Character.INITIAL_QUOTE_PUNCTUATION
+                                        && lastCharType != Character.SPACE_SEPARATOR) {
+                                    needBreakFromLastChar = true;
+                                }
+
+                                break;
+                            case Character.UPPERCASE_LETTER:
+                            case Character.LOWERCASE_LETTER:
+//                        case Character.CONNECTOR_PUNCTUATION:
+                                if (lastCharType != Character.UPPERCASE_LETTER && lastCharType != Character.LOWERCASE_LETTER) {
+                                    needBreakFromLastChar = true;
+                                }
+                                break;
+                            case Character.START_PUNCTUATION:
+                            case Character.INITIAL_QUOTE_PUNCTUATION:
+                                if (lastCharType != Character.START_PUNCTUATION && lastCharType != Character.INITIAL_QUOTE_PUNCTUATION) {
+                                    needBreakFromLastChar = true;
+                                }
+                                break;
+                            case Character.END_PUNCTUATION:
+                            case Character.FINAL_QUOTE_PUNCTUATION:
+                                break;
+                            case Character.SPACE_SEPARATOR:
+                                needBreakFromLastChar = true;
+                                break;
+                            case Character.OTHER_PUNCTUATION:
+                            case Character.OTHER_SYMBOL:
+                                break;
+                            case Character.DASH_PUNCTUATION:
+                                if (lastCharType != Character.DASH_PUNCTUATION)
+                                    needBreakFromLastChar = true;
+                                break;
+                            default:
+                                break;
+                        }
+                        if (needBreakFromLastChar) {
+                            String word = sb.substring(0, sb.length() - 1);
+                            element = new BookTextWordElement(word, this);
+//                        element.setBaseWidth(paint.measureText(word));
+                            float baseWidth = 0;
+                            for (int i = index - sb.length() + 1; i < index; i++) {
+                                baseWidth += charWidths[i];
+                            }
+                            element.setBaseWidth(baseWidth);
+                            element.setIndex(index - sb.length() + 1);
+                            sb.delete(0, sb.length() - 1);
+                            words.add(element);
+                            needBreakFromLastChar = false;
+                        }
+                    }
+                    lastCharType = currentCharType;
+                    index++;
+                } else {
+                    if (sb.length() > 0) {
+                        element = new BookTextWordElement(sb.toString(), this);
+                        element.setIndex(index - sb.length());
+                        float baseWidth = 0;
+                        for (int i = index - sb.length() + 1; i < index; i++) {
+                            baseWidth += charWidths[i];
+                        }
+                        element.setBaseWidth(baseWidth);
+                        sb.setLength(0);
+                        words.add(element);
+                    }
+                    if (contentChars.length - index >= 6 && (String.valueOf(contentChars, index, 6).equals("&nbsp;"))) {
+//                    MyReadLog.i("subString = " + String.valueOf(contentChars, index, index + 6) + " index = " + index + "index + 6 = " + (index + 6));
+                        element = new BookTextNbspElement(this);
+                        element.setIndex(index);
+                        index = index + 6;
+                        lastCharType = -1;
+                    } else {
+                        element = new BookTextWordElement("&", this);
+                        element.setIndex(index);
+                        element.setBaseWidth(StringWidthMeasureHelper.getCharWidth('&'));
+                        index = index + 1;
+                        lastCharType = Character.OTHER_PUNCTUATION;
+                    }
+                    words.add(element);
+                }
+            }
+            if (sb.length() > 0) {
+                element = new BookTextWordElement(sb.toString(), this);
+                element.setIndex(index - sb.length() + 1);
+//            element.setBaseWidth(paint.measureText(sb.toString()));
+                element.setBaseWidth(StringWidthMeasureHelper.getStringWidth(sb.toString()));
+                sb.setLength(0);
+                words.add(element);
+            }
+        }
+    }
+
+    /**
      * 获取用户显示的元素（文字和图片）
      *
      * @return
      */
-    public ArrayList<BookTextBaseElement> getTextElements() {
+    public ArrayList<BookTextBaseElement> getAllTextElements() {
         ArrayList<BookTextBaseElement> result = new ArrayList<>();
         if (!TextUtils.isEmpty(content)) {
-            char[] contentChars = content.toCharArray();
-            int index = 0;
-            boolean isReadLetter = false;
-            StringBuffer sb = new StringBuffer();
-            BookTextBaseElement element;
-            while (index < contentChars.length) {
-                if (contentChars[index] != '&') {
-                    if (!BookStingUtil.isLetter(contentChars[index])) {
-                        // TODO TEST判断接下来的三个字符是不是字母或者数字，如果接下来的三个字符都是数字或者字母，则都放到一个wordElement里面
-                        int forwardIndex = 3;
-                        if (forwardIndex + index > contentChars.length - 1) {
-                            forwardIndex = contentChars.length - 1 - index;
-                        }
-                        boolean isFirstCharChinese = BookStingUtil.isOnlyChinese(contentChars[index]);
-                        int realForwardIndex = 0;
-                        if (forwardIndex > 0) {
-                            sb.append(contentChars[index]);
-                            for (int i = 1; i < forwardIndex + 1; i++) {
-                                char c = contentChars[index + i];
-                                if (!BookStingUtil.isOnlyChinese(c) && c != '&') {
-                                    sb.append(c);
-                                    realForwardIndex = i;
-                                } else {
-                                    break;
-                                }
-                            }
-//                            MyReadLog.i(sb.toString());
-                            element = new BookTextWordElement(sb.toString(), this , isFirstCharChinese && realForwardIndex == 0);
-                            sb.setLength(0);
-                        } else {
-                            element = new BookTextWordElement(String.valueOf(contentChars[index]), this, true);
-                        }
-                        element.setIndex(index);
-                        index = index + 1 + realForwardIndex;
-                        result.add(element);
-                    } else {
-                        isReadLetter = true;
-                    }
-                    if (isReadLetter) {
-                        sb.append(contentChars[index]);
-                        if (index + 1 >= contentChars.length || (index + 1 < contentChars.length && (contentChars[index] < 'a' || contentChars[index] > 'Z'))) {
-                            element = new BookTextWordElement(String.valueOf(contentChars[index]), this);
-                            element.setIndex(index);
-                            result.add(element);
-                            isReadLetter = false;
-                            sb.setLength(0);
-                        }
-                        index++;
-                    }
-                } else {
-
-                    int semicolonIndex = content.indexOf(";", index);
-                    if (semicolonIndex > -1 && (semicolonIndex - index) < 9) {
-                        String characterEntryStr = (semicolonIndex == contentChars.length - 1)
-                                ? content.substring(index)
-                                : content.substring(index, semicolonIndex + 1);
-                        switch (characterEntryStr) {
-                            case "&nbsp;":
-                                element = new BookTextNbspElement(this);
-                                element.setIndex(index);
-                                index = semicolonIndex + 1;
-                                break;
-                            case "&lt;":
-                                element = new BookTextWordElement("<", this);
-                                element.setIndex(index);
-                                index = semicolonIndex + 1;
-                                break;
-                            case "&gt;":
-                                element = new BookTextWordElement(">", this);
-                                element.setIndex(index);
-                                index = semicolonIndex + 1;
-                                break;
-
-                            default:
-                                MyReadLog.i(String.valueOf(contentChars[index]));
-                                element = new BookTextWordElement(String.valueOf(contentChars[index]), this);
-                                element.setIndex(index);
-                                index++;
-                                break;
-                        }
-                    } else {
-                        element = new BookTextWordElement(String.valueOf(contentChars[index]), this);
-                        element.setIndex(index);
-                    }
-
-                    result.add(element);
-                }
-            }
+//            ArrayList<BookTextBaseElement> words = wo;
+            if (words != null && words.size() > 0) result.addAll(words);
         } else {
             if (controlTag instanceof ImageControlTag) {
                 result.add(new BookTextImageElement((ImageControlTag) controlTag, this));
@@ -274,7 +433,7 @@ public class BookContentElement {
             } else {
                 if (contentElements != null && contentElements.size() > 0) {
                     for (int i = 0; i < contentElements.size(); i++) {
-                        result.addAll(contentElements.get(i).getTextElements());
+                        result.addAll(contentElements.get(i).getAllTextElements());
                     }
                 }
             }
@@ -282,11 +441,13 @@ public class BookContentElement {
         return result;
     }
 
+
     /**
      * 是否当前元素是段落开始
      *
      * @return
      */
+
     public boolean isCurrentElementParagraphStart() {
         if (parent == null) return true;
         if (parent.getControlTag() instanceof ParagraphControlTag || parent.getControlTag() instanceof DivisionControlTag) {
@@ -337,4 +498,47 @@ public class BookContentElement {
             return parent.isLink();
         }
     }
+
+    public SimpleArrayMap<String, String> getIdPosition() {
+        SimpleArrayMap<String, String> result = new SimpleArrayMap<>();
+        if (controlTag != null){
+            String idStr = controlTag.getId();
+            if (!TextUtils.isEmpty(idStr)) {
+                result.put(idStr, getFirstWordOrImgElementPosition());
+            }
+        }
+
+        if (contentElements != null && contentElements.size() > 0) {
+            for (int i = 0; i < contentElements.size(); i++) {
+                result.putAll(contentElements.get(i).getIdPosition());
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 获取第一个展示的文字或图片的位置信息
+     * @return
+     */
+    public String getFirstWordOrImgElementPosition() {
+        String position = "";
+        if (!TextUtils.isEmpty(content)) {
+            return words.get(0).getPosition();
+        } else if (controlTag instanceof ImageControlTag) {
+            return getPosition();
+        } else if ( contentElements != null &&!contentElements.isEmpty() ) {
+            return contentElements.get(0).getFirstWordOrImgElementPosition();
+        }
+        return position;
+    }
+
+    public String getHrefPath() {
+        if (controlTag != null && controlTag instanceof LinkControlTag) {
+            return ((LinkControlTag) controlTag).getHrefStr();
+        } else {
+            if (parent == null) return "";
+            return parent.getHrefPath();
+        }
+    }
+
 }

@@ -5,8 +5,10 @@ import android.support.v4.util.SimpleArrayMap;
 import android.text.TextUtils;
 
 import com.example.epubreader.book.css.BookCSSAttributeSet;
+import com.example.epubreader.book.css.BookClassSet;
 import com.example.epubreader.util.BookStingUtil;
 import com.example.epubreader.book.css.BookTagAttribute;
+import com.example.epubreader.util.MyReadLog;
 
 
 /**
@@ -15,24 +17,33 @@ import com.example.epubreader.book.css.BookTagAttribute;
  */
 
 public class BookBasicControlTag {
+    private static final String ATTRIBUTE_NAME_CLASS = "class";
+    private static final String ATTRIBUTE_NAME_STYLE = "style";
+    private static final String ATTRIBUTE_NAME_ID = "id";
     private String tagName; // 标签名称
     private String attributeStr; // 属性字段
-
+    ArrayMap<String, String> allAttribute; // 所有属性
     ArrayMap<String, BookTagAttribute> attributeMap = new ArrayMap<>(); //储存标签内的属性信息
-
     private BookCSSAttributeSet bookCSSAttributeSet;
+    private String id;
+
 
     public BookBasicControlTag(String tagName, String attributeStr) {
         this.tagName = tagName;
         this.attributeStr = attributeStr;
+    }
 
+    public BookBasicControlTag(String tagName, ArrayMap<String, String> allAttribute) {
+        this.tagName = tagName;
+        this.allAttribute = allAttribute;
     }
 
     /**
      * 设置html里获取到的属性集合
+     *
      * @param bookCSSAttributeSet
      */
-    public void setNeedAttribute(BookCSSAttributeSet bookCSSAttributeSet){
+    public void setNeedAttribute(BookCSSAttributeSet bookCSSAttributeSet) {
         this.bookCSSAttributeSet = bookCSSAttributeSet;
         getCSSAndStyleAttribute();
         getOtherAttribute(attributeStr);
@@ -43,36 +54,50 @@ public class BookBasicControlTag {
      * 获取CSS里面的属性以及Style里面的属性
      */
     private void getCSSAndStyleAttribute() {
-    // 1.加载css里面的根标签的属性；
-    // 2.加载定义的属性
-    // 3.加载style里面定义的属性； 即style=".."中定义的属性
-        attributeMap = bookCSSAttributeSet.getDefaultAttributeMap(tagName);
-        if (TextUtils.isEmpty(attributeStr)) {
+        // 1.加载css里面的根标签的属性；
+        // 2.加载定义的属性
+        // 3.加载style里面定义的属性； 即style=".."中定义的属性
+        if (bookCSSAttributeSet != null) {
+            attributeMap = bookCSSAttributeSet.getDefaultAttributeMap(tagName);
+        }
+//        MyReadLog.i("attribute map size is " + attributeMap.size());
+        if (TextUtils.isEmpty(attributeStr) && (allAttribute == null || allAttribute.size() <= 0)) {
+//            MyReadLog.i("return");
             return;
         }
-        int classIndex = attributeStr.indexOf("class");
-        if (classIndex > -1) {
-            String classValue = BookStingUtil.getDataValue(attributeStr, "\"", "\"", classIndex).trim();
-            if (!TextUtils.isEmpty(classValue)) {
-//                String[] classes = classValue.split(" ");
-//                MyReadLog.i("first class is " + classes[0]);
-                if (bookCSSAttributeSet.getBookClass(classValue, tagName) != null) {
-                    attributeMap.putAll((SimpleArrayMap<String, BookTagAttribute>)bookCSSAttributeSet.getBookClass(classValue, tagName).attributes);
-                }
+//        MyReadLog.i("not return");
+        String classValue = "";
+        String styleValue = "";
+        if (allAttribute == null) {
+            int classIndex = attributeStr.indexOf(ATTRIBUTE_NAME_CLASS);
+            if (classIndex > -1)
+                classValue = BookStingUtil.getDataValue(attributeStr, "\"", "\"", classIndex).trim();
+            int styleIndex = attributeStr.indexOf(ATTRIBUTE_NAME_STYLE);
+            if (styleIndex > -1) {
+                styleValue = BookStingUtil.getDataValue(attributeStr, "\"", "\"", styleIndex).trim();
+            }
+        } else {
+            classValue = allAttribute.get(ATTRIBUTE_NAME_CLASS);
+            styleValue = allAttribute.get(ATTRIBUTE_NAME_STYLE);
+        }
+        if (!TextUtils.isEmpty(classValue) && bookCSSAttributeSet != null) {
+            BookClassSet classSet = bookCSSAttributeSet.getBookClass(classValue, tagName);
+//            MyReadLog.i("classSet size is " + classSet.attributes.size());
+            if (classSet != null ) {
+                attributeMap.putAll((SimpleArrayMap<String, BookTagAttribute>) classSet.attributes);
             }
         }
-        int styleIndex = attributeStr.indexOf("style");
-        if (styleIndex > -1) {
-            String styleValue  = BookStingUtil.getDataValue(attributeStr, "\"", "\"", styleIndex).trim();
+
+        if (!TextUtils.isEmpty(styleValue)) {
             String[] styles = styleValue.split(";");
-            if (styles != null && styles.length > 0) {
+            if (styles.length > 0) {
                 for (int i = 0; i < styles.length; i++) {
                     String attributeItemStr = styles[i].trim();
                     if (!TextUtils.isEmpty(attributeItemStr)) {
                         int colonIndex = attributeItemStr.indexOf(":");
                         if (colonIndex > -1) {
-                           String attributeName = attributeItemStr.substring(0, colonIndex).trim();
-                           String attributeValue = attributeItemStr.substring(colonIndex + 1).trim();
+                            String attributeName = attributeItemStr.substring(0, colonIndex).trim();
+                            String attributeValue = attributeItemStr.substring(colonIndex + 1).trim();
                             if (!TextUtils.isEmpty(attributeName) && !TextUtils.isEmpty(attributeValue)) {
                                 attributeMap.put(attributeName, new BookTagAttribute(attributeName, attributeValue));
                             }
@@ -81,6 +106,7 @@ public class BookBasicControlTag {
                 }
             }
         }
+
     }
 
     /**
@@ -89,7 +115,18 @@ public class BookBasicControlTag {
      * @param attributeStr
      */
     protected void getOtherAttribute(String attributeStr) {
+        if (allAttribute == null) {
+            int idIndex = attributeStr.indexOf(ATTRIBUTE_NAME_ID);
+            if (idIndex > -1) {
+                id = attributeStr.substring(idIndex);
+            }
+        } else {
+            id = allAttribute.get(ATTRIBUTE_NAME_ID);
+        }
+    }
 
+    public String getId() {
+        return id;
     }
 
     public String getTagName() {
@@ -102,6 +139,7 @@ public class BookBasicControlTag {
 
     /**
      * 获取标签的属性
+     *
      * @return
      */
     public ArrayMap<String, BookTagAttribute> getAttributeMap() {

@@ -17,6 +17,8 @@ public class BookTextLineBreakElement extends BookTextBaseElement {
 
     @Override
     public int getWidth(int fontSize, int maxWidth, int maxHeight) {
+        width = -1;
+        height = fontSize;
         return width;
     }
 

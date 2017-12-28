@@ -1,6 +1,5 @@
 package com.example.epubreader.book;
 
-import android.graphics.Paint;
 import android.support.v4.util.ArrayMap;
 import android.text.TextUtils;
 
@@ -10,300 +9,215 @@ import com.example.epubreader.book.css.BookTagAttribute;
 import com.example.epubreader.book.tag.BodyControlTag;
 import com.example.epubreader.book.tag.BookBasicControlTag;
 import com.example.epubreader.book.tag.ImageControlTag;
+import com.example.epubreader.book.toc.TocElement;
 import com.example.epubreader.util.BookAttributeUtil;
-import com.example.epubreader.util.BookStingUtil;
 import com.example.epubreader.util.MyReadLog;
 import com.example.epubreader.view.book.BookLineInfo;
 import com.example.epubreader.view.book.BookPage;
+import com.example.epubreader.view.book.BookReadPosition;
 import com.example.epubreader.view.book.element.BookTextBaseElement;
 import com.example.epubreader.view.book.element.BookTextImageElement;
-import com.example.epubreader.view.book.element.BookTextWordElement;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * 用于加载html文件，并解析，文件
  * Created by Boyad on 2017/11/2.
  */
 public class EpubReaderHtml {
-    private static final byte PARSE_NO_START = 0;
-    private static final byte PARSE_DOING = 1;
-    private static final byte PARSE_END = 2;
-    private byte isReadHead = PARSE_NO_START;
-    private byte isReadBody = PARSE_NO_START;
+    private static final String HTML_TAG_NAME_HEAD = "head";
+    private static final String HTML_TAG_NAME_BODY = "body";
 
     public BookModel bookModel;
-    private BookResourceFile CSSFile;
     public BookContentElement mainContentElement; // 主显示内容（主要为标签为body的主元素）
     private volatile BookContentElement contentElement; //用于计算各元素；
 
-    private int depth = -1;// 记录当前元素的深度
     private BookCSSAttributeSet currentAttributeSet; // 用到的CSS
     private ArrayList<String> cssArrayList; //用于记录用到的css文件
 
-
     private volatile ArrayList<BookPage> bookPages = new ArrayList<>(); //保存html生成的页面信息
     private ArrayList<BookTextBaseElement> textElements;
-    private Paint paint = new Paint();
+    private ArrayMap<String, String> idPositions = new ArrayMap<>(); //存放id对应的位置
+
+    private int htmlIndex;
+    private boolean needShow;
 
     public EpubReaderHtml(BookModel bookModel) {
         this.bookModel = bookModel;
     }
 
-
-    public void parseHtmlByPull(InputStream inputStream) {
-        if (inputStream == null) return;
+    private void parseHtml(InputStream inputStream) {
+//        cssArrayList.clear(); //TODO TEST
+//        currentAttributeSet.reset();
+//        contentElement.getContentElements().clear();
+        long startTime = System.currentTimeMillis();
         try {
             XmlPullParser parser = XmlPullParserFactory.newInstance().newPullParser();
             parser.setInput(new InputStreamReader(inputStream));
-            while (parser.getEventType() != XmlPullParser.END_DOCUMENT) {
+            parser.defineEntityReplacementText("nbsp", "&nbsp;");
+            String opfDir = bookModel.getOpfDir();
+            int type = parser.getEventType();
+            final byte start = 0;
+            final byte doing = 1;
+            final byte stop = 2;
+            byte readHeadProgress = start;
+            byte readBodyProgress = start;
+            while (type != XmlPullParser.END_DOCUMENT) {
+                String tagName = parser.getName();
+                switch (type) {
+                    case XmlPullParser.START_TAG:
+                        if (readHeadProgress == start && tagName.equals(HTML_TAG_NAME_HEAD)) {
+                            readHeadProgress = doing;
+                            break;
+                        }
+                        if (readHeadProgress == doing) {
+                            if (tagName.equals("link")) {
+                                String rel = parser.getAttributeValue(null, "rel");
+                                if (rel != null && !TextUtils.isEmpty(rel)) {
+                                    if (rel.equals("stylesheet")) {
+                                        String hrefStr = parser.getAttributeValue(null, "href");
+                                        if (hrefStr != null && !TextUtils.isEmpty(hrefStr)) {
+                                            if (!TextUtils.isEmpty(opfDir)) {
+                                                if (hrefStr.startsWith("..")) {
+                                                    hrefStr = hrefStr.replace("..", opfDir);
+                                                } else {
+                                                    hrefStr = opfDir + "/" + hrefStr;
+                                                }
+//                                                MyReadLog.i("hrefStr =  " + hrefStr);
+                                                if (cssArrayList == null) {
+                                                    cssArrayList = new ArrayList();
+                                                }
+                                                cssArrayList.add(hrefStr);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
 
-                MyReadLog.i("getEventType ->" + parser.getEventType() + ", getDepth =" + parser.getDepth());
-                if (parser.getEventType() == XmlPullParser.START_TAG) {
-                    String taName = parser.getName();
-                    String classStr = parser.getAttributeValue(null, "class");
-                    String styleStr = parser.getAttributeValue(null, "style");
-                    MyReadLog.d("Start:   tagName = %s, classStr = %s, styleStr = %s ", taName, classStr, styleStr);
-
-                    if (taName.toLowerCase().equals("p")) {
-
-                        MyReadLog.i("nextText =" + parser.nextText());
-
-                        MyReadLog.i("nextTag =" + parser.nextTag() + ", getDepth = " + parser.getDepth());
-                    }
-
-                } else if (parser.getEventType() == XmlPullParser.END_TAG) {
-                    String tagName = parser.getName();
-                    MyReadLog.i("End : tagName = " + tagName);
+                        if (readBodyProgress == start && tagName.equals(HTML_TAG_NAME_BODY)) {
+                            readBodyProgress = doing;
+                            if (contentElement == null) {
+                                int count = parser.getAttributeCount();
+                                ArrayMap<String, String> attributeMaps = new ArrayMap<>();
+                                for (int i = 0; i < count; i++) {
+                                    String key = parser.getAttributeName(i);
+                                    String value = parser.getAttributeValue(i).trim();
+                                    if (!TextUtils.isEmpty(key) && !TextUtils.isEmpty(value)) {
+                                        attributeMaps.put(key, value);
+                                    }
+                                }
+                                BookBasicControlTag controlTag = BookTagManagerFactory.createControlTagByArrayMap(HTML_TAG_NAME_BODY, attributeMaps, currentAttributeSet);
+                                contentElement = new BookContentElement(controlTag);
+                            }
+                            break;
+                        }
+                        if (readBodyProgress == doing) {
+                            int count = parser.getAttributeCount();
+                            ArrayMap<String, String> attributeMaps = new ArrayMap<>();
+                            for (int i = 0; i < count; i++) {
+                                String key = parser.getAttributeName(i);
+                                String value = parser.getAttributeValue(i).trim();
+                                if (!TextUtils.isEmpty(key) && !TextUtils.isEmpty(value)) {
+                                    attributeMaps.put(key, value);
+                                }
+                            }
+                            BookBasicControlTag controlTag = BookTagManagerFactory.createControlTagByArrayMap(tagName, attributeMaps, currentAttributeSet);
+                            if (controlTag instanceof ImageControlTag) {
+                                ((ImageControlTag) controlTag).setImageData(bookModel.getImageInputStream(((ImageControlTag) controlTag).getImagePathStr()));
+                            }
+                            BookContentElement childElement = new BookContentElement(contentElement, controlTag);
+                            contentElement.addControlElement(childElement);
+                            contentElement = childElement;
+                        }
+                        break;
+                    case XmlPullParser.TEXT:
+                        if (!parser.isWhitespace() && readBodyProgress == doing) {
+                            String contentText = parser.getText().trim();
+                            if (contentElement != null && !TextUtils.isEmpty(contentText)) {
+                                contentElement.addTextElement(contentText);
+                            }
+//                            MyReadLog.i("contentText = " + contentText);
+                        }
+                        break;
+                    case XmlPullParser.END_TAG:
+                        if (readHeadProgress == doing && tagName.equals(HTML_TAG_NAME_HEAD)) {
+                            readHeadProgress = stop;
+                            if (bookModel.cssAttributeSet != null && bookModel.cssAttributeSet.getSingleCSSSets().size() > 0) {
+                                currentAttributeSet = bookModel.cssAttributeSet.getNewCSSAttribute(cssArrayList);
+                            }
+                        } else if (readBodyProgress == doing) {
+                            if (tagName.equals(HTML_TAG_NAME_BODY)) {
+                                readBodyProgress = stop;
+                                break;
+                            } else {
+                                if (contentElement != null) {
+                                    contentElement = contentElement.getParent();
+                                }
+                            }
+                        }
+                        break;
                 }
-                parser.next();
-
+                type = parser.next();
             }
         } catch (XmlPullParserException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
+//        MyReadLog.i("parseHtml cost time is " + (System.currentTimeMillis() - startTime));
     }
 
     /**
      * 加载流
      *
-     * @param inputStream
+     * @param needShow 是否用于展示，如果needShow 为true，则需要计算align，和计算剩余边距分配
+     * @param htmlIndex
      */
-    public void loadHtmlInputStream(InputStream inputStream) {
-        if (inputStream == null) return;
+    public void loadHtmlInputStream(int htmlIndex, boolean needShow) {
+        this.needShow = needShow;
+        this.htmlIndex = htmlIndex;
+        if (htmlIndex < 0 || htmlIndex > bookModel.getSpinSize() - 1) return;
         long startTime = System.currentTimeMillis();
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
-        String line;
-        try {
-            while ((line = bufferedReader.readLine()) != null) {
-                line = line.trim();
+        InputStream inputStream = bookModel.getTextContent(htmlIndex);
+        if (inputStream == null) return;
+        parseHtml(inputStream);
+        mainContentElement = contentElement;
 
-                // 解析head部分
-                if (isReadHead == PARSE_NO_START && line.contains("<head")) {
-                    isReadHead = PARSE_DOING;
-                }
-                if (isReadHead == PARSE_DOING) {
-                    addNeedCSSFile(line);
-                    if (line.contains("</head>")) {
-                        isReadHead = PARSE_END;
-                        // 将当前文件需要用到的CSS文件转换成BookCSSAttributeSet
-                        currentAttributeSet = bookModel.cssAttributeSet.getNewCSSAttribute(cssArrayList);
-                    }
-                }
+        textElements = mainContentElement.getAllTextElements();
+        idPositions.putAll(mainContentElement.getIdPosition());
+        buildBookPages();
 
-                // 解析body部分
-                if (isReadBody == PARSE_NO_START && line.contains("<body")) {
-                    isReadBody = PARSE_DOING;
-                }
-                if (isReadBody == PARSE_DOING) {
-//                    MyReadLog.i(line);
-                    addToContent(line);
-                    if (line.contains("</body>")) {
-                        isReadBody = PARSE_END;
-                        if (contentElement == null) MyReadLog.i("contentElement is null");
-                        mainContentElement = contentElement;
-                    }
-                }
-            }
-            long parseHtmlTime = System.currentTimeMillis();
-
-            buildBookPages();
-            MyReadLog.i("parseTocFile html cost  is  " + (parseHtmlTime - startTime) + ", cut to pages cost  " + (System.currentTimeMillis() - parseHtmlTime));
-//            if (mainContentElement == null) {
-//                MyReadLog.i("mainContentElement is null");
-//            } else {
-//                MyReadLog.i("主元素里面的元素数量是 " + mainContentElement.getElementSize());
-//                MyReadLog.i("主元素里面子元素内的元素数量是 " + mainContentElement.getIndex(0).getElementSize());
-//                MyReadLog.i("css 大小" + currentAttributeSet.getSingleCSSSets().size());
-//                if (currentAttributeSet != null && currentAttributeSet.getSingleCSSSets() != null && currentAttributeSet.getSingleCSSSets().size() > 0) {
-//                    for (int i = 0; i < currentAttributeSet.getSingleCSSSets().size(); i++) {
-//                        BookSingleCSSSet singleCSSSet = currentAttributeSet.getSingleCSSSets().valueAt(i);
-//                        String name = currentAttributeSet.getSingleCSSSets().keyAt(i);
-//                        MyReadLog.i(name + " unDefault class size : " + singleCSSSet.classes.size());
-//                        MyReadLog.i(name + " default class size : " + singleCSSSet.rootClasses.size());
-//                    }
-//                }
-//            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    /**
-     * TODO TEST: 暂时不识别注释
-     * 添加信息到需要显示的内容中
-     *
-     * @param line
-     */
-    private void addToContent(String line) {
-        if (TextUtils.isEmpty(line)) return;
-        char[] element = line.toCharArray();
-        int index = 0;
-//        MyReadLog.i(line);
-        while (index < element.length) {
-//            MyReadLog.i("index: " + index + " : " + element[index] + "next char " + element[index + 1] + " , depth = " + depth);
-            if (element[index] == '<') {
-                int endBracketIndex = line.indexOf(">", index + 1);  // '<'后的'>'的索引位置
-                if (element[index + 1] == '/') {
-                    // 判断 "</...>" 情况
-                    index = endBracketIndex + 1;
-//                    MyReadLog.i("depth = " + depth + " : " + contentElement.getPosition() + ", tag = " + contentElement.getControlTag().getTagName());
-                    depth--;
-                    if (depth > -1) {
-                        BookContentElement parentContentElement = contentElement.getParent();
-                        contentElement = parentContentElement;
-                    }
-                } else if (element[endBracketIndex - 1] == '/') {
-                    // 判断 <.../>
-                    int spaceIndex = line.indexOf(" ", index);
-                    String tagName;
-                    String attributeStr = "";
-                    if (spaceIndex != -1 && spaceIndex < endBracketIndex - 1) {
-                        // 例如<img class= ".." src = ".."/>
-                        tagName = line.substring(index + 1, spaceIndex).trim().toLowerCase();
-                        attributeStr = line.substring(spaceIndex, endBracketIndex - 1).trim();
-//                        MyReadLog.i("tagName : "+tagName+", attribute--> " + attributeStr);
-                    } else {
-                        // 例如<br/>
-                        tagName = line.substring(index + 1, endBracketIndex - 1).trim().toLowerCase();
-                    }
-//                    MyReadLog.i("这里是元素开始:" + tagName);
-                    BookBasicControlTag controlTag = BookTagManagerFactory.createControlTag(tagName, TextUtils.isEmpty(attributeStr) ? "" : attributeStr, currentAttributeSet);
-                    if (controlTag instanceof ImageControlTag) {
-                        ((ImageControlTag) controlTag).setImageData(bookModel.getImageInputStream(((ImageControlTag) controlTag).getImagePathStr()));
-                    }
-                    BookContentElement childElement = new BookContentElement(contentElement, controlTag);
-                    contentElement.addControlElement(childElement);
-                    index = endBracketIndex + 1;
-                } else {
-                    // 判断 <...>
-                    int spaceIndex = line.indexOf(" ", index);
-                    String tagName;
-                    String attributeStr = "";
-                    if (spaceIndex != -1 && spaceIndex < endBracketIndex) {
-                        // 例如<p class= ".." style = "..">
-                        tagName = line.substring(index + 1, spaceIndex).trim().toLowerCase();
-                        attributeStr = line.substring(spaceIndex, endBracketIndex).trim();
-//                        MyReadLog.i("attribute-->" + attributeStr);
-                    } else {
-                        // 例如<p>,或者<h1>
-                        tagName = line.substring(index + 1, endBracketIndex).trim().toLowerCase();
-                    }
-//                    MyReadLog.i("这里是元素开始:" + tagName);
-                    BookBasicControlTag controlTag = BookTagManagerFactory.createControlTag(tagName, TextUtils.isEmpty(attributeStr) ? "" : attributeStr, currentAttributeSet);
-                    if (depth == -1) {
-//                        MyReadLog.i("开始阅读阅读body");
-                        contentElement = new BookContentElement(controlTag);
-                    } else {
-                        BookContentElement childElement = new BookContentElement(contentElement, controlTag);
-                        contentElement.addControlElement(childElement);
-                        contentElement = childElement;
-                    }
-                    depth++;
-                    index = endBracketIndex + 1;
-                }
-            } else {
-                int nextStartBracketIndex = line.indexOf("<", index);
-                String content;
-                if (nextStartBracketIndex > -1) {
-                    content = line.substring(index, nextStartBracketIndex);
-                    index = nextStartBracketIndex;
-
-                } else {
-                    content = line.substring(index);
-                    index = line.length();
-                }
-                content = content.replaceAll("\\n", " ").replaceAll(" +", " "); // 将换号符号换成空格，再将多个空格换成一个空格
-                if (!TextUtils.isEmpty(content.trim())) {
-                    contentElement.addTextElement(content.trim());
-                }
-
-            }
-        }
-    }
-
-    /**
-     * todo test : 暂时做统一处理 没有区分js其他的信息
-     * 获取需要用到的CSS
-     *
-     * @param line
-     */
-    private void addNeedCSSFile(String line) {
-        if (line.startsWith("<link") && line.contains("href")) {
-            String hrefValue = BookStingUtil.getDataValue(line, "\"", "\"", line.indexOf("href")).trim();
-
-            String opfDir = bookModel.getOpfDir();
-            if (!TextUtils.isEmpty(opfDir)) {
-                if (hrefValue.startsWith("..")) {
-                    hrefValue = hrefValue.replace("..", opfDir);
-                } else {
-                    hrefValue = opfDir + "/" + hrefValue;
-                }
-            }
-            MyReadLog.i(hrefValue);
-            if (cssArrayList == null) {
-                cssArrayList = new ArrayList();
-            }
-            cssArrayList.add(hrefValue);
-        }
+        long parseHtmlTime = System.currentTimeMillis();
+//        MyReadLog.i("parseTocFile html cost  is  " + (parseHtmlTime - startTime) + ", cut to pages cost  " + (System.currentTimeMillis() - parseHtmlTime));
     }
 
     /**
      * 将mainContentElement转换成行信息
      */
     private int elementIndex = 0;
-
     public synchronized void buildBookPages() {
 //        MyReadLog.i("buildBookPages");
         if (mainContentElement == null || mainContentElement.getElementSize() < 0) return;
         bookPages.clear();
         long startTime = System.currentTimeMillis();
-        textElements = mainContentElement.getTextElements(); // TODO TEST  此处耗时较长 待优化
-        long startMeasureElementTime = System.currentTimeMillis();
-        measureTextElementsSize();
-        MyReadLog.i("getTextElements cost " + (System.currentTimeMillis() - startTime) + ", measure element cost " + (System.currentTimeMillis() - startMeasureElementTime));
         if (mainContentElement.getControlTag() instanceof BodyControlTag) {
             BodyControlTag controlTag = (BodyControlTag) mainContentElement.getControlTag();
             int pageWidth = ReaderApplication.getInstance().getWindowSize().widthPixels;
             int pageHeight = ReaderApplication.getInstance().getWindowSize().heightPixels;
             BookPage page = new BookPage(controlTag, pageWidth);
-//            BookLineInfo lastLineInfo; // 上一行信息
+            page.setGap();
             int lineInfoStartX = page.lGap;
             int lineInfoStartY = page.tGap;
             elementIndex = 0;
-            BookPage childPage = null ;
+            BookPage childPage = null;
 //            MyReadLog.i("pageWidth = " + pageWidth + ", lGap = " + lineInfoStartX + ", tGap = " + lineInfoStartY);
             while (elementIndex < textElements.size()) {
 //                long buildLineStartTime = System.currentTimeMillis();
@@ -320,78 +234,18 @@ public class EpubReaderHtml {
                     lineInfoStartY = page.tGap;
                 } else {
                     childPage.addLineInfo(lineInfo);
-//                    page.addLineInfo(lineInfo);
                 }
 //                MyReadLog.i("build line cost " + (System.currentTimeMillis() - buildLineStartTime));
-//                lastLineInfo = lineInfo;
                 lineInfoStartY = lineInfoStartY + lineInfo.getLineHeight();
                 lineInfoStartX = page.lGap;
             }
 
-            if (!bookPages.contains(childPage) && childPage != null){
+            if (!bookPages.contains(childPage) && childPage != null) {
                 childPage.finishAdd();
                 bookPages.add(childPage);
             }
-            MyReadLog.i("line size is " + page.getLineSize() + ", cost time is  " + (System.currentTimeMillis() - startTime));
-//            bookPages = page.cutToPages(pageHeight);
+//            MyReadLog.i("line size is " + page.getLineSize() + ", cost time is  " + (System.currentTimeMillis() - startTime));
         }
-    }
-
-    /**
-     * 测量 textElements内的文字大小
-     */
-
-    private void measureTextElementsSize() {
-        measureOnMainThread();
-//          TODO test 多线程效果不明显，暂时放弃
-        if (true) return;
-        int threadCount = ReaderApplication.getInstance().getCoreNumber();
-        ThreadPoolExecutor measureSizeService = (ThreadPoolExecutor) Executors.newFixedThreadPool(threadCount, new PriorityHighThreadFactory());
-//        MyReadLog.i("size = " + textElements.size());
-        int threadMeasureSize = textElements.size() / threadCount;
-        int remainderSize = textElements.size() % threadCount;
-
-        long startTime = System.currentTimeMillis();
-        for (int i = 0; i < threadCount; i++) {
-            int startIndex = i * threadMeasureSize + Math.min(i, remainderSize);
-            int endIndex = startIndex + threadMeasureSize + (i < remainderSize ? 0 : -1);
-//            MyReadLog.d("startIndex = %d, endIndex = %s", startIndex, endIndex);
-            measureSizeService.execute(new MeasureElementSizeRunnable(textElements, startIndex, endIndex));
-        }
-//        }
-
-        while (measureSizeService.getCompletedTaskCount() < threadCount) {
-            try {
-//                MyReadLog.i("measureSizeService.getCompletedTaskCount() = " + measureSizeService.getCompletedTaskCount() + " / " + threadCount);
-                Thread.sleep(5);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-//        attributeSet = null;
-//        lastElement = null;
-        MyReadLog.i("measureOnThreadPool cost " + (System.currentTimeMillis() - startTime));
-    }
-
-    private void measureOnMainThread() {
-        long startTime = System.currentTimeMillis();
-        Paint paint = new Paint();
-        for (int i = 0; i < textElements.size(); i++) {
-            BookTextBaseElement element = textElements.get(i);
-            if (!(element instanceof BookTextImageElement)) {
-                if (attributeSet == null || element.isPositionChange(lastElement)) {
-                    attributeSet = element.getAttributeSet();
-                    fontSize = BookAttributeUtil.getFontSize(attributeSet);
-                    paint.setTextSize(fontSize);
-                }
-//                BookTextWordElement wordElement = (BookTextWordElement) element;
-                element.measureSize(fontSize, paint);
-                lastElement = element;
-            }
-        }
-        attributeSet = null;
-        lastElement = null;
-        MyReadLog.i("measureOnMainThread cost " + (System.currentTimeMillis() - startTime));
     }
 
     /**
@@ -407,7 +261,7 @@ public class EpubReaderHtml {
     private ArrayMap<String, BookTagAttribute> paragraphAttributeSet = null;
     private int leftGap, rightGap;
     private int fontSize;
-    private float lineHeightRate  = 1.2f;
+    private float lineHeightRate = 1.2f;
 
     private BookLineInfo buildBookLineInfo(int pageWidth, int pageHeight, int lineInfoStartX, int lineInfoStartY) {
         int startX = lineInfoStartX;
@@ -424,6 +278,7 @@ public class EpubReaderHtml {
 //        MyReadLog.i("elementIndex --->" + elementIndex + ", element size is" + textElements.size());
 //        long startTime = System.currentTimeMillis();
         boolean needAlignOffset = false;
+        int alignOffset = 0;
 
         while (elementIndex < textElements.size()) {
             BookTextBaseElement element = textElements.get(elementIndex);
@@ -457,6 +312,7 @@ public class EpubReaderHtml {
                     lineInfo.setLineWidth(lineWidth);
                 }
                 needAlignOffset = BookAttributeUtil.needVerticalAlignOffset(attributeSet);
+                if (!needAlignOffset) alignOffset = 0;
                 leftGap = BookAttributeUtil.getMargin(attributeSet, BookAttributeUtil.POSITION_LEFT, pageWidth)
                         + BookAttributeUtil.getPadding(attributeSet, BookAttributeUtil.POSITION_LEFT, pageWidth);
                 rightGap = BookAttributeUtil.getMargin(attributeSet, BookAttributeUtil.POSITION_RIGHT, pageWidth)
@@ -503,14 +359,20 @@ public class EpubReaderHtml {
                 element.y = lineInfoStartY - element.descent;
             }
             if (needAlignOffset) {
-                element.y = element.y - BookAttributeUtil.getVerticalAlign(attributeSet, lastElement == null ? BookAttributeUtil.getFontSize(paragraphAttributeSet) : lastElement.height, elementHeight);
+                if (alignOffset == 0) {
+                    alignOffset = BookAttributeUtil.getVerticalAlign(attributeSet, lastElement == null ? BookAttributeUtil.getFontSize(paragraphAttributeSet) : lastElement.height, elementHeight);
+                }
+//                MyReadLog.i("alignOffset = " + alignOffset);
+                element.y = element.y - alignOffset;
             }
 //            MyReadLog.i("lineInfoStartX = " + lineInfoStartX + ", elementWidth = " + elementWidth);
 
             if (startX + lineWidth - rightGap < lineInfoStartX) {
 //                MyReadLog.d("lineWidth = %d, rightGap = %d, element.x = %d, startX = %d", lineWidth, rightGap, element.x, startX);
 //                long startRebuildTime = System.currentTimeMillis();
-                lineInfo.rebuildLineInfo(startX + lineWidth - rightGap - element.x);
+                if (needShow) {
+                    lineInfo.rebuildLineInfo(startX + lineWidth - rightGap - element.x);
+                }
 //                MyReadLog.i("rebuild line info cost time " + (System.currentTimeMillis() - startRebuildTime));
                 break;
             }
@@ -519,7 +381,7 @@ public class EpubReaderHtml {
             lastElement = element;
             elementIndex++;
         }
-        if (elementIndex >= textElements.size()) {
+        if (needShow && elementIndex >= textElements.size()) {
 //            MyReadLog.i("elementIndex >= textElements.size()");
             lineInfo.alignLineInfo(BookAttributeUtil.getTextAlign(attributeSet));
         }
@@ -529,50 +391,53 @@ public class EpubReaderHtml {
         return lineInfo;
     }
 
-    /**
-     * 获取paint ，用于测量element的长度
-     *
-     * @param attributeArrayMap
-     * @return
-     */
-    public void setPaint(ArrayMap<String, BookTagAttribute> attributeArrayMap) {
-        paint.setTextSize(BookAttributeUtil.getFontSize(attributeArrayMap));
-    }
-
     public ArrayList<BookPage> getPages() {
         return bookPages;
     }
 
+    public ArrayMap<String, String> getIdPositions() {
+        return idPositions;
+    }
 
-    private class MeasureElementSizeRunnable implements Runnable {
-        private ArrayList<BookTextBaseElement> elements;
-        private int startIndex, endIndex;
-        private Paint elementPaint;
-        private ArrayMap<String, BookTagAttribute> attributeArrayMap = null;
-        private int elementFontSize;
-        private BookTextBaseElement lastTextElement;
-
-        public MeasureElementSizeRunnable(ArrayList<BookTextBaseElement> elements, int startIndex, int endIndex) {
-            this.elements = elements;
-            this.startIndex = startIndex;
-            this.endIndex = endIndex;
-            elementPaint = new Paint();
-        }
-
-        @Override
-        public void run() {
-            for (int i = startIndex; i < endIndex + 1; i++) {
-                BookTextBaseElement element = elements.get(i);
-                if (element instanceof BookTextWordElement) {
-                    if (attributeArrayMap == null || element.isPositionChange(lastTextElement)) {
-                        attributeArrayMap = element.getAttributeSet();
-                        elementFontSize = BookAttributeUtil.getFontSize(attributeArrayMap);
-                        elementPaint.setTextSize(elementFontSize);
+    /**
+     * 获取tocElement的页码信息
+     * @param startIndex
+     */
+    public void getIndexInTocElement(int startIndex) {
+        ArrayMap<String, Integer> currentHtmlTocments = bookModel.getHtmlTocElement(htmlIndex);
+        if (currentHtmlTocments != null) {
+            for (int i = 0; i < currentHtmlTocments.size(); i++) {
+                String inHtmlId = currentHtmlTocments.keyAt(i);
+                TocElement childElement = bookModel.tocElement.getElementAt(currentHtmlTocments.valueAt(i), true);
+                if (!TextUtils.isEmpty(inHtmlId.trim())) {
+                    String inHtmlPosition = idPositions.get(inHtmlId);
+                    MyReadLog.i(inHtmlPosition);
+                    childElement.setPosition(inHtmlPosition);
+                    String[] positions = inHtmlPosition.split("/");
+                    BookReadPosition position;
+                    if (positions.length > 1) {
+                        position = new BookReadPosition(htmlIndex, positions[0], Integer.valueOf(positions[1]));
+                    } else {
+                        position = new BookReadPosition(htmlIndex, positions[0], 0);
                     }
-                    element.measureSize(elementFontSize, elementPaint);
-                    lastTextElement = element;
+                    childElement.setPageIndex(startIndex +  1);
+                    for (int j = 0; j < bookPages.size(); j++) {
+                        BookPage bookPage = bookPages.get(j);
+                        if (bookPage.containElement(position)){
+                            childElement.setPageIndex(startIndex + 1 + j);
+                            break;
+                        }
+                    }
+                } else {
+                    childElement.setPosition("0:0:0/0");
+                    childElement.setPageIndex(startIndex +  1);
                 }
+//                currentHtmlTocments.valueAt(i).setPosition(idPositions.get(currentHtmlTocments.keyAt(i)));
             }
         }
+    }
+
+    public int getHtmlIndex() {
+        return htmlIndex;
     }
 }

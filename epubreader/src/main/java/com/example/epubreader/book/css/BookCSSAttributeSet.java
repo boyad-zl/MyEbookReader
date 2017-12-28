@@ -98,6 +98,7 @@ public class BookCSSAttributeSet {
                                         // 当行中没有出现 '.'
                                         String tag = line.substring(charIndex, periodIndex).trim();
                                         String className = line.substring(periodIndex + 1).trim();
+//                                        MyReadLog.i(tag + " : " + className);
                                         classSet = new BookClassSet(className, tag);
                                     }
                                     charIndex = line.length();
@@ -166,6 +167,11 @@ public class BookCSSAttributeSet {
             depth = 0;
 //            MyReadLog.i(cssFile.inFilePath);
             singleCSSSets.put(cssFile.inFilePath, singleCSSSet);
+//            MyReadLog.i("----------");
+//            for (int j = 0; j < singleCSSSet.classes.size(); j++) {
+//                BookClassSet clz = singleCSSSet.classes.valueAt(j);
+//                MyReadLog.i("size is " + clz.attributes.size());
+//            }
         }
     }
 
@@ -184,17 +190,15 @@ public class BookCSSAttributeSet {
             if (!TextUtils.isEmpty(classStr)) {
                 String[] classValues = classStr.split(" ");
                 bookClassSet = new BookClassSet(classStr);
+//                MyReadLog.i("singleCSSSets.size() = " + singleCSSSets.size() + ", 第一个singleCssSet size " + singleCSSSets.valueAt(0).classes.size());
                 for (int j = 0; j < singleCSSSets.size(); j++) {
                     BookSingleCSSSet singleCssSt = singleCSSSets.valueAt(j);
                     if (singleCssSt != null) {
                         for (int i = 0; i < classValues.length; i++) {
                             String classValue = classValues[i].trim();
-                            if (!TextUtils.isEmpty(classValue)) {
-                                if (singleCssSt.containClass(classValue, tag)) {
-                                    bookClassSet.addAttribute(singleCssSt.getBookClassSet(classValue, tag));
-                                }
+                            if ((!TextUtils.isEmpty(classValue)) && singleCssSt.containClass(classValue, tag)) {
+                                bookClassSet.addAttribute(singleCssSt.getBookClassSet(classValue, tag));
                             }
-
                         }
                     }
                 }
@@ -224,6 +228,11 @@ public class BookCSSAttributeSet {
                 String cssFileId = cssArrayList.get(i).trim();
                 if (!TextUtils.isEmpty(cssFileId)) {
                     if (this.singleCSSSets.containsKey(cssFileId)) {
+//                        MyReadLog.i("cssFiledId = " + cssFileId + ", singCssSet size " + singleCSSSets.get(cssFileId).classes.size());
+//                        for (int j = 0; j < singleCSSSets.get(cssFileId).classes.size(); j++) {
+//                            BookClassSet clz = singleCSSSets.get(cssFileId).classes.valueAt(j);
+//                            MyReadLog.i("size is " + clz.attributes.size());
+//                        }
                         bookCSSAttributeSet.singleCSSSets.put(cssFileId, new BookSingleCSSSet(singleCSSSets.get(cssFileId)));
                     }
                 }
@@ -238,6 +247,7 @@ public class BookCSSAttributeSet {
 
     /**
      * 获取默认属性
+     *
      * @param tagName
      * @return
      */
@@ -245,5 +255,9 @@ public class BookCSSAttributeSet {
         BookClassSet defaultClassSet = new BookClassSet("", tagName);
         getDefaultAttribute(defaultClassSet, tagName);
         return defaultClassSet.attributes;
+    }
+
+    public void reset() {
+        singleCSSSets.clear();
     }
 }

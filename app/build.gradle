@@ -1,20 +1,69 @@
 apply plugin: 'com.android.application'
 
+//版本号
+def verName = "1.0.0"
 android {
     compileSdkVersion 26
     buildToolsVersion "25.0.2"
+
+    signingConfigs {
+        Properties props = new Properties()
+        String projectPath = getProjectDir().getParentFile().getAbsolutePath()
+        if (project.hasProperty("keystore.properties")) {
+            String keystorePath = projectPath + project.getProperties().get("keystore.properties");
+            if (new File(keystorePath).exists()) {
+                props.load(new FileInputStream(file(keystorePath)))
+            }
+        }
+        release {
+            keyAlias props['keystore.alias']
+            keyPassword props['keystore.alias.password']
+            storeFile file(projectPath + props['keystore'])
+            storePassword props['keystore.password']
+        }
+    }
+
     defaultConfig {
         applicationId "com.example.zjb.myebookreader"
+        versionCode ((int) (System.currentTimeMillis() / 1000))
+        versionName "${verName}"
+        multiDexEnabled true
         minSdkVersion 14
         targetSdkVersion 26
-        versionCode 1
-        versionName "1.0"
+
+        buildConfigField 'Boolean', 'LOG_ENABLE', 'true'
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
+
+
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
+            zipAlignEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+            buildConfigField 'Boolean', 'LOG_ENABLE', 'false'
+        }
+        beta.initWith(buildTypes.debug)
+        beta {
+            minifyEnabled true
+            zipAlignEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+            buildConfigField 'Boolean', 'LOG_ENABLE', 'false'
+        }
+    }
+
+    productFlavors {
+        myTest {}
+        myOnline {
+        }
+    }
+
+    android.applicationVariants.all { variant ->
+        def file = variant.outputs[0].outputFile
+        if (variant.buildType.name.equals('release') || variant.buildType.name.equals('beta')) {
+            variant.outputs[0].outputFile = new File(file.parent, String.format("myReader_%s_%s_%s.apk", defaultConfig.versionName, defaultConfig.versionCode, variant.buildType.name))
         }
     }
 }

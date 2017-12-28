@@ -1,5 +1,6 @@
 package com.example.epubreader.book.tag;
 
+import android.support.v4.util.ArrayMap;
 import android.text.TextUtils;
 
 import com.example.epubreader.util.BookAttributeUtil;
@@ -12,31 +13,30 @@ import com.example.epubreader.util.MyReadLog;
  */
 
 public class LinkControlTag extends BookBasicControlTag {
-    private String idStr, hrefStr;
+    private static final String ATTRIBUTE_NAME_HREF = "href";
+    private String  hrefStr;
     public LinkControlTag(String tagName, String attributeStr) {
         super(tagName, attributeStr);
+    }
+
+    public LinkControlTag(String tagName, ArrayMap<String, String> allAttribute) {
+        super(tagName, allAttribute);
     }
 
     @Override
     protected void getOtherAttribute(String attributeStr) {
         super.getOtherAttribute(attributeStr);
-        if (TextUtils.isEmpty(attributeStr)) return;
-        int idIndex = attributeStr.indexOf("id");
-        if (idIndex > -1) {
-            idStr = BookStingUtil.getDataValue(attributeStr, "\"", "\"", idIndex);
-//            MyReadLog.i("idStr = " + idStr);
-        }
-
-        int hrefIndex = attributeStr.indexOf("href");
-        if (hrefIndex > -1) {
-            hrefStr = BookStingUtil.getDataValue(attributeStr, "\"", "\"", hrefIndex);
-            if (!TextUtils.isEmpty(hrefStr) && hrefStr.startsWith("#")) {
-                hrefStr = hrefStr.substring(1);
-            } else {
-                hrefStr = "";
+        if (allAttribute == null) {
+            int hrefIndex = attributeStr.indexOf(ATTRIBUTE_NAME_HREF);
+            if (hrefIndex > -1) {
+                hrefStr = BookStingUtil.getDataValue(attributeStr, "\"", "\"", hrefIndex);
             }
-//            MyReadLog.i("hrefStr = " + hrefStr);
+        } else {
+            hrefStr = allAttribute.get(ATTRIBUTE_NAME_HREF);
         }
     }
 
+    public String getHrefStr() {
+        return hrefStr;
+    }
 }

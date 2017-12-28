@@ -18,7 +18,7 @@ public class BookUIHelper {
      * @return
      */
     public static int dp2px(float dpValue) {
-        final float scale = getWindowSize().density;
+        final float scale = ReaderApplication.getInstance().getWindowSize().density;
         return (int) (dpValue * scale + 0.5f);
     }
 

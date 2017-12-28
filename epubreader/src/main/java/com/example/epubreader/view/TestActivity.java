@@ -46,7 +46,8 @@ public class TestActivity extends AppCompatActivity {
             @Override
             public void run() {
                 EpubReaderHtml htmlContent = new EpubReaderHtml(bookModel);
-                htmlContent.loadHtmlInputStream(bookModel.getTextContent(5));
+                htmlContent.loadHtmlInputStream(2, true);
+//                htmlContent.parseHtml(bookModel.getTextContent(5));
 //        htmlContent.parseHtmlByPull(bookModel.getTextContent(5));
                 bookDummyView.setPages(htmlContent.getPages());
                 Bitmap bitmap = Bitmap.createBitmap(ReaderApplication.getInstance().getWindowSize().widthPixels,
