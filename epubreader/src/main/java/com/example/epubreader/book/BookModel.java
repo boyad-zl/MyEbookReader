@@ -71,14 +71,14 @@ public class BookModel {
             }
 
             ZipEntry metaFile = zipFile.getEntry(contentOpfFileName);
-            long startCategoryTime = System.currentTimeMillis();
+//            long startCategoryTime = System.currentTimeMillis();
             categoryBook(zipFile, metaFile);
-            MyReadLog.i("category file cost time is " + (System.currentTimeMillis() - startCategoryTime));
-            MyReadLog.i("----开始解析逐个读取html文件");
+//            MyReadLog.i("category file cost time is " + (System.currentTimeMillis() - startCategoryTime));
+//            MyReadLog.i("----开始解析逐个读取html文件");
 
             ReaderApplication.getInstance().getDummyView().preparePage(getReadPosition());
             ReaderApplication.getInstance().getMyWidget().reset();
-            ReaderApplication.getInstance().getMyWidget().repaint();
+//            ReaderApplication.getInstance().getMyWidget().repaint();
             new Thread(new Runnable() {
                 @Override
                 public void run() {
@@ -99,17 +99,17 @@ public class BookModel {
      */
     private void categoryBook(ZipFile zipFile, ZipEntry metaFile) throws IOException {
         InputStream inputStream = zipFile.getInputStream(metaFile);
-        long start = System.currentTimeMillis();
+//        long start = System.currentTimeMillis();
         EpubPullParserUtil.parseMetaFile(inputStream, this);
 
         if (!TextUtils.isEmpty(bookCover)) {
             createCoverPage();
-            MyReadLog.i("createCoverPage");
+//            MyReadLog.i("createCoverPage");
             if (coverPage != null) {
                 ReaderApplication.getInstance().getDummyView().setCoverPage(coverPage);
             }
         }
-        MyReadLog.i("metadata file cost time is " + (System.currentTimeMillis() - start));
+//        MyReadLog.i("metadata file cost time is " + (System.currentTimeMillis() - start));
         if (cssFileArrayMap.size() > 0) {
             loadCSSAttributes(); // 加载CSS文件
         }
@@ -344,6 +344,7 @@ public class BookModel {
      * @return
      */
     public synchronized InputStream getImageInputStream(String imagePathStr) {
+//        MyReadLog.i("getImageInputStream");
         if (!imagePathStr.startsWith(opfDir)) {
             if (imagePathStr.startsWith("../")) {
                 imagePathStr = opfDir + imagePathStr.substring(2);

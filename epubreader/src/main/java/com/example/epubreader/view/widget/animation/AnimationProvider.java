@@ -171,6 +171,7 @@ public abstract class AnimationProvider {
                 mySpeed = forward ? velocity : -velocity;
                 break;
         }
+        MyReadLog.i("startAnimatedScrollingInternal");
         startAnimatedScrollingInternal((int) mySpeed);
     }
 
@@ -212,7 +213,6 @@ public abstract class AnimationProvider {
 
     public final void draw(Canvas canvas) {
         long start = System.currentTimeMillis();
-
         setFilter();
         drawInternal(canvas);
         MyReadLog.i("draw a frame cost time is " + (System.currentTimeMillis() - start));

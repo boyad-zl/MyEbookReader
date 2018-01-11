@@ -47,6 +47,7 @@ public class BookDummyView extends BookDummyAbstractView {
     private Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private Paint imagePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private boolean isSelectedTextRegion = false; // 是否在选择中
+    private SparseArray<Integer> pageIndexs = new SparseArray<>();
 
 
     public final ExecutorService prepareService = Executors.newSingleThreadExecutor(new PriorityHighThreadFactory());
@@ -107,8 +108,8 @@ public class BookDummyView extends BookDummyAbstractView {
             }
 
             if (needRepaint) {
-                ReaderApplication.getInstance().getMyWidget().reset();
-                ReaderApplication.getInstance().getMyWidget().repaint();
+                application.getMyWidget().reset();
+                application.getMyWidget().repaint();
             }
         } else {
 //            MyReadLog.i("is web url ? " + BookStingUtil.isWebUrl(hrefChips[0]));
@@ -319,9 +320,7 @@ public class BookDummyView extends BookDummyAbstractView {
                         html.loadHtmlInputStream(htmlIndex, true);
                         pageArray.put(htmlIndex, html.getPages());
                         idArrays.put(htmlIndex, html.getIdPositions());
-                        MyReadLog.i("put finished ==time=" + (System.currentTimeMillis() - startTime) + "=====" +
-                                "pages size is " + html.getPages().size() +
-                                " size change to " + pageArray.size());
+//                        MyReadLog.i("put finished == time=" + (System.currentTimeMillis() - startTime) + ", pages size is " + html.getPages().size() + ", size change to " + pageArray.size());
                     }
 
                     if (pageArray.size() > 5) {
@@ -332,13 +331,13 @@ public class BookDummyView extends BookDummyAbstractView {
                             pageArray.removeAt(pageArray.size() - 1);
                             idArrays.removeAt(pageArray.size() - 1);
                         }
-                        MyReadLog.i("pageArray size is" + pageArray.size());
+//                        MyReadLog.i("pageArray size is" + pageArray.size());
                     }
                 }
             });
         }
         String readPositionStr = currentPageKey + "-" + currentPage.getStartPosition();
-        MyReadLog.i(readPositionStr);
+//        MyReadLog.i(readPositionStr);
         myBookModel.saveReadPosition(readPositionStr);
     }
 
@@ -468,6 +467,7 @@ public class BookDummyView extends BookDummyAbstractView {
         } else {
             canvas.drawColor(Color.BLACK);
         }
+//        MyReadLog.i("lineSize  =  " + bookPage.getLineSize());
         for (int i = 0; i < bookPage.getLineSize(); i++) {
             BookLineInfo info = bookPage.getLindInfo(i);
             drawLineInfo(info, canvas);
@@ -483,6 +483,7 @@ public class BookDummyView extends BookDummyAbstractView {
     private void drawLineInfo(BookLineInfo info, Canvas canvas) {
         ArrayMap<String, BookTagAttribute> attributeSet = null;
         BookTextBaseElement lastElement = null;
+//        MyReadLog.i("info size is = " + info.elements.size());
         for (int i = 0; i < info.elements.size(); i++) {
             BookTextBaseElement element = info.elements.get(i);
             if (attributeSet == null || element.isPositionChange(lastElement)) {
@@ -508,9 +509,10 @@ public class BookDummyView extends BookDummyAbstractView {
         } else if (bookTextBaseElement instanceof BookTextNbspElement || bookTextBaseElement instanceof BookTextLineBreakElement) {
             canvas.drawText("  ", bookTextBaseElement.x, bookTextBaseElement.y, paint);
         } else if (bookTextBaseElement instanceof BookTextImageElement) {
-            String imagePath = ((BookTextImageElement) bookTextBaseElement).getImagePath();
-            MyReadLog.i("imagePath = " + imagePath);
-            Bitmap bitmap = ((BookTextImageElement) bookTextBaseElement).createBitmap(myBookModel.getImageInputStream(imagePath));
+            BookTextImageElement imageElement = (BookTextImageElement) bookTextBaseElement;
+            String imagePath = imageElement.getImagePath();
+//            MyReadLog.i("imagePath = " + imagePath);
+            Bitmap bitmap = imageElement.createBitmap(myBookModel.getImageInputStream(imagePath));
             if (bitmap != null) {
 //                MyReadLog.i("imagePath = " + imagePath + "， bitmap size height = " + bitmap.getHeight() + ", width = " + bitmap.getWidth() + "elementWidth =  " + bookTextBaseElement.width + ", elementHeight = " + bookTextBaseElement.height);
                 canvas.drawBitmap(bitmap, bookTextBaseElement.x, bookTextBaseElement.y, imagePaint);
@@ -558,6 +560,9 @@ public class BookDummyView extends BookDummyAbstractView {
             }
         }
         MyReadLog.i("currentPageKey = " + currentPageKey + " , currentPageIndex = " + currentPageIndex);
+        if (!isCalculatePages) {
+            currentPageNum = pageIndexs.get(currentPageKey) + currentPageIndex;
+        }
         setPageCurrentAndPreviousIndex();
 //        }
     }
@@ -819,22 +824,20 @@ public class BookDummyView extends BookDummyAbstractView {
     public void calculateTotalPages() {
         isCalculatePages = true;
         long start = System.currentTimeMillis();
-        int nowPageHtmlKey = currentPageKey;
-        int nowPageIndex = currentPageIndex;
-        int oldPageNum = 0;
         totalPages = 0;
+        pageIndexs.clear();
         for (int i = 0; i < myBookModel.getSpinSize(); i++) {
             EpubReaderHtml html = new EpubReaderHtml(myBookModel);
             html.loadHtmlInputStream(i, false);
             html.getIndexInTocElement(totalPages);
-            if (i == nowPageHtmlKey) {
-                oldPageNum = totalPages + 1 + nowPageIndex;
-            }
+            pageIndexs.put(i, totalPages + 1);
             totalPages = totalPages + html.getPages().size();
         }
         isCalculatePages = false;
-        currentPageNum = oldPageNum + movePageSum;
+        currentPageNum = pageIndexs.get(currentPageKey) + currentPageIndex;
         MyReadLog.i("calculateTotalPages cost " + (System.currentTimeMillis() - start) + "，totalPages =  " + totalPages);
+        application.getMyWidget().reset();
+        application.getMyWidget().repaint();
     }
 
 //    @Override

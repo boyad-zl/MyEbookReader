@@ -1,11 +1,10 @@
 package com.example.epubreader.view.widget;
 
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.view.Surface;
 
+import com.example.epubreader.ReaderApplication;
 import com.example.epubreader.util.MyReadLog;
 
 /**
@@ -20,13 +19,13 @@ public class PageBitmapManagerImpl implements PageBitmapManager {
     private int myWidth ;
     private int myHeight;
 
-    private final BookReaderView myWidget;
+//    private final BookReaderSurfaceView myWidget;
 
-    public PageBitmapManagerImpl(BookReaderView myWidget) {
-        this.myWidget = myWidget;
+    public PageBitmapManagerImpl() {
+
     }
 
-    void setSize(int w, int h) {
+    public void setSize(int w, int h) {
         if (myWidth != w  || myHeight != h) {
             myWidth = w;
             myHeight = h;
@@ -59,7 +58,8 @@ public class PageBitmapManagerImpl implements PageBitmapManager {
             }
         }
         MyReadLog.i("myWidget.drawOnBitmap");
-        myWidget.drawOnBitmap(myBitmaps[iIndex], pageIndex);
+//        myWidget.drawOnBitmap(myBitmaps[iIndex], pageIndex);
+        ReaderApplication.getInstance().getMyWidget().drawOnBitmap(myBitmaps[iIndex], pageIndex);
         return myBitmaps[iIndex];
     }
 

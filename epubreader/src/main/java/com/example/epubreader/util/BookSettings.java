@@ -1,5 +1,6 @@
 package com.example.epubreader.util;
 
+import android.animation.FloatArrayEvaluator;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.content.pm.ApplicationInfo;
@@ -18,7 +19,8 @@ import com.example.epubreader.ReaderApplication;
 public class BookSettings {
     private static final String SETTING_NAME = "book_settings"; // 配置名
 
-    private static final String READ_BOOK_POSITION = "read_book_position"; // 标识手机的唯一id
+    private static final String READ_BOOK_POSITION = "read_book_position";
+    public static final String READ_PAGE_TURN_ANIMATION_CUL = "read_page_turn_animation_cul"; // 是否是仿真翻页
 
 
     /**
@@ -185,5 +187,13 @@ public class BookSettings {
 
     public static String getReadBookPosition(){
         return getString(READ_BOOK_POSITION, "");
+    }
+
+    public static boolean getPageTurnAnimation() {
+        return getBoolean(READ_PAGE_TURN_ANIMATION_CUL, false);
+    }
+
+    public static void setPageTurnAnimation(boolean isCul) {
+        setBoolean(READ_PAGE_TURN_ANIMATION_CUL, isCul);
     }
 }

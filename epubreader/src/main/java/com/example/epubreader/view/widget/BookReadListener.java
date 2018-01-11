@@ -1,5 +1,6 @@
 package com.example.epubreader.view.widget;
 
+import android.graphics.Bitmap;
 import android.graphics.Rect;
 
 import com.example.epubreader.view.book.BookViewEnums;
@@ -22,6 +23,9 @@ public interface BookReadListener {
 
 
     void drawSelectedRegion(List<Rect> rects);
+
+    void drawOnBitmap(Bitmap myBitmap, int pageIndex);
+    public void setPageBitmapManager(PageBitmapManagerImpl pageBitmapManager);
 //    void setScreenBrightness(int percent);
 //    int getScreenBrightness();
 }

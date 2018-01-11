@@ -6,35 +6,53 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.graphics.drawable.BitmapDrawable;
+import android.opengl.GLSurfaceView;
+import android.os.Build;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Looper;
+import android.os.Message;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
+import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.ViewConfiguration;
 
+import com.example.epubreader.R;
 import com.example.epubreader.ReaderApplication;
+import com.example.epubreader.util.BookUIHelper;
 import com.example.epubreader.util.MyReadLog;
 import com.example.epubreader.view.book.BookDummyAbstractView;
 import com.example.epubreader.view.book.BookViewEnums;
 import com.example.epubreader.view.widget.animation.AnimationProvider;
 import com.example.epubreader.view.widget.animation.cul.CurlAnimationProvider;
-import com.example.epubreader.view.widget.animation.NoneAnimationProvider;
-import com.example.epubreader.view.widget.animation.ShiftAnimationProvider;
-import com.example.epubreader.view.widget.animation.SlideAnimationProvider;
-import com.example.epubreader.view.widget.animation.SlideOldStyleAnimationProvider;
+import com.example.epubreader.view.widget.animation.cul.pageflip.Page;
+import com.example.epubreader.view.widget.animation.cul.pageflip.PageFlip;
+import com.example.epubreader.view.widget.animation.cul.pageflip.PageFlipException;
 
 import java.util.List;
+import java.util.concurrent.locks.ReentrantLock;
+
+import javax.microedition.khronos.egl.EGLConfig;
+import javax.microedition.khronos.opengles.GL10;
+
+import static com.example.epubreader.view.widget.BookReaderGLSurfaceView.DrawHandler.MESSAGE_DRAW_ANIMATION_PAGES;
 
 
 /**
  * Created by Boyad on 2018/1/8.
  */
 
-public class BookReaderView extends View implements View.OnLongClickListener, BookReadListener {
-
+public class BookReaderGLSurfaceView extends GLSurfaceView implements View.OnLongClickListener, BookReadListener, GLSurfaceView.Renderer {
     private Context mContext;
     private Paint myPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private Paint selectedPaint = new Paint();
-    private PageBitmapManagerImpl pageBitmapManager ;
+    //    private PageBitmapManagerImpl pageBitmapManager = new PageBitmapManagerImpl(this);
+    private PageBitmapManagerImpl pageBitmapManager;
+    private HandlerThread drawHandlerThread;
+    private DrawHandler drawHandler;
+
     private Bitmap startCursorBitmap;
     private Bitmap endCursorBitmap;
     private int cursorBitmapWidth, cursorBitmapHeight;
@@ -46,85 +64,121 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
     public static final int PAGE_POSITION_INDEX_PREVIOUS = -1;
     public static final int PAGE_POSITION_INDEX_CURRENT = 0;
     public static final int PAGE_POSITION_INDEX_NEXT = 1;
+    private PageFlip mPageFlip;
+    private ReentrantLock mLock;
+    private final static int CUL_ANIMATION_DURATION = 600;
 
-    public BookReaderView(Context context) {
+
+    public BookReaderGLSurfaceView(Context context) {
         super(context);
         mContext = context;
         init();
-
     }
 
-    public BookReaderView(Context context, AttributeSet attrs) {
+    public BookReaderGLSurfaceView(Context context, AttributeSet attrs) {
         super(context, attrs);
         mContext = context;
         init();
     }
 
-    public BookReaderView(Context context, AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-        mContext = context;
-        init();
+    public void setPageBitmapManager(PageBitmapManagerImpl pageBitmapManager) {
+        this.pageBitmapManager = pageBitmapManager;
     }
 
-    /**
-     * 初始化
-     */
     private void init() {
         MyReadLog.i("view init !!!");
+        drawHandler = new DrawHandler();
+        mLock = new ReentrantLock();
+        mPageFlip = new PageFlip(mContext);
+        mPageFlip.setSemiPerimeterRatio(0.8f)
+                .setMaskAlphaOfFold(0xF0)
+                .setWidthRatioOfClickToFlip(0.5f)
+                .setShadowWidthOfFoldEdges(5, 60, 0.3f)
+                .setShadowWidthOfFoldBase(5, 80, 0.4f)
+                .setPixelsOfMesh(10)
+                .enableAutoPage(true);
+        setEGLContextClientVersion(2);
+        setRenderer(this);
+        setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
 
 //        pageBitmapManager = new PageBitmapManagerImpl();
         selectedPaint.setColor(Color.argb(0x58, 0, 0, 0xff));
+
         setFocusableInTouchMode(true);
         setDrawingCacheEnabled(false);
         setOnLongClickListener(this);
     }
 
-    long lastDrawTime ;
     @Override
-    protected void onDraw(Canvas canvas) {
-        pageBitmapManager.setSize(getWidth(), getHeight());
-        if (getAnimationProvider().inProgress()) {
-            onDrawInScrolling(canvas);
-            long FinishDrawTime = System.currentTimeMillis();
-            MyReadLog.i("动画之间的时间间距是" + (FinishDrawTime - lastDrawTime));
-            lastDrawTime = FinishDrawTime;
-
-        } else {
-            onDrawStatic(canvas);
+    public void onSurfaceCreated(GL10 gl, EGLConfig config) {
+        try {
+            mPageFlip.onSurfaceCreated();
+        } catch (PageFlipException e) {
+            e.printStackTrace();
         }
     }
 
-    private void onDrawStatic(Canvas canvas) {
-        canvas.drawBitmap(pageBitmapManager.getBitmap(PAGE_POSITION_INDEX_CURRENT), 0, 0, myPaint);
+    @Override
+    public void onSurfaceChanged(GL10 gl, int width, int height) {
+        try {
+            mPageFlip.onSurfaceChanged(width, height);
+            pageBitmapManager.setSize(width, height);
+            MyReadLog.i(" Render ---> onSurfaceChanged");
+        } catch (PageFlipException e) {
+            e.printStackTrace();
+        }
     }
 
-    private void onDrawInScrolling(Canvas canvas) {
-//                    MyReadLog.i("MESSAGE_DRAW_ANIMATION_PAGES");
-        final BookDummyAbstractView view = ReaderApplication.getInstance().getDummyView();
-        final AnimationProvider animator = getAnimationProvider();
-        final AnimationProvider.Mode oldMode = animator.getMode();
-        animator.doStep();
-        if (animator.inProgress()) {
-            animator.draw(canvas);
-            if (animator.getMode().Auto) {
-                postInvalidate();
-            }
-//                            drawFooter(canvas, animator);
-        } else {
-            switch (oldMode) {
-                case AnimatedScrollingForward: {
-                    final int index = animator.getPageToScrollTo();
-                    boolean isForward = index == PAGE_POSITION_INDEX_NEXT;
-                    pageBitmapManager.shift(isForward);
-                    view.onScrollingFinished(index);
+    @Override
+    public void onDrawFrame(GL10 gl) {
+        try {
+            mLock.lock();
+//            MyReadLog.i("onDrawFrame");
+            final AnimationProvider animator = getAnimationProvider();
+            if (animator.isProgress()) {
+//                MyReadLog.i("drawScrolling");
+                final BookDummyAbstractView view = ReaderApplication.getInstance().getDummyView();
+                final AnimationProvider.Mode oldMode = animator.getMode();
+//                MyReadLog.i("Mode ："+oldMode);
+                animator.doStep();
+                if (animator.inProgress()) {
+                    animator.draw(null);
+                    if (animator.getMode().Auto) {
+                        // TODO TEST 让其重画
+                        drawHandler.sendEmptyMessage(MESSAGE_DRAW_ANIMATION_PAGES);
+                    }
+                } else {
+                    switch (oldMode) {
+                        case AnimatedScrollingForward: {
+                            final int index = animator.getPageToScrollTo();
+                            boolean isForward = index == PAGE_POSITION_INDEX_NEXT;
+                            pageBitmapManager.shift(isForward);
+                            view.onScrollingFinished(index);
 //                                    ZLApplication.Instance().onRepaintFinished();
-                    break;
+                            break;
+                        }
+                        case AnimatedScrollingBackward:
+                            view.onScrollingFinished(PAGE_POSITION_INDEX_CURRENT);
+                            break;
+                    }
+                    onDrawStatic();
                 }
-                case AnimatedScrollingBackward:
-                    view.onScrollingFinished(PAGE_POSITION_INDEX_CURRENT);
-                    break;
+            } else {
+                onDrawStatic();
             }
-            onDrawStatic(canvas);
+        } finally {
+            mLock.unlock();
+        }
+    }
+
+    private void onDrawStatic() {
+//        MyReadLog.i("onDrawStatic!");
+        mPageFlip.deleteUnusedTextures();
+        Page page = mPageFlip.getFirstPage();
+        Bitmap currentBitmap = pageBitmapManager.getBitmap(PAGE_POSITION_INDEX_CURRENT);
+        if (currentBitmap != null) {
+            page.setFirstTexture(currentBitmap);
+            mPageFlip.drawPageFrame();
         }
     }
 
@@ -157,7 +211,6 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
             myPendingPress = false;
             myPendingShortClickRunnable = null;
         }
-
     }
 
     private volatile ShortClickRunnable myPendingShortClickRunnable;
@@ -258,10 +311,12 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
 
     @Override
     public void startManualScrolling(int x, int y, BookViewEnums.Direction direction) {
+//        MyReadLog.i("startManualScrolling");
         final AnimationProvider animator = getAnimationProvider();
 //		animator.setup(direction, getWidth(), getMainAreaHeight(), myColorLevel);
         animator.setup(direction, getWidth(), getHeight(), null);
         animator.startManualScrolling(x, y);
+        mPageFlip.onFingerDown(x, y);
     }
 
     @Override
@@ -269,10 +324,22 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
         final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
         final AnimationProvider animator = getAnimationProvider();
         int pageIndex = animator.getPageToScrollTo(x, y);
-        MyReadLog.i("scrollManuallyTo");
+//        MyReadLog.i("scrollManuallyTo");
         if (dummyView.canScroll(pageIndex == PAGE_POSITION_INDEX_NEXT)) {
             animator.scrollTo(x, y);
-            postInvalidate();
+//            if (animator.inProgress()) {
+//                drawHandler.sendEmptyMessage(BookReaderSurfaceView.DrawHandler.MESSAGE_DRAW_ANIMATION_PAGES);
+//            } else {
+//                drawHandler.sendEmptyMessage(BookReaderSurfaceView.DrawHandler.MESSAGE_DRAW_CURRENT_PAGE);
+//            }
+        }
+        if (mPageFlip.onFingerMove(x, y)) {
+            try {
+                mLock.lock();
+                requestRender();
+            } finally {
+                mLock.unlock();
+            }
         }
     }
 
@@ -286,7 +353,20 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
         }
         MyReadLog.i("startAnimatedScrolling ==== x   y ");
         animation.startAnimatedScrolling(x, y, 25);
-        postInvalidate();
+//        if (!mPageFlip.isAnimating()) {
+            mPageFlip.onFingerUp(x, y, CUL_ANIMATION_DURATION);
+            try {
+                mLock.lock();
+                requestRender();
+            } finally {
+                mLock.unlock();
+            }
+//        }
+//        if (animation.inProgress()) {
+//            drawHandler.sendEmptyMessage(BookReaderSurfaceView.DrawHandler.MESSAGE_DRAW_ANIMATION_PAGES);
+//        } else {
+//            drawHandler.sendEmptyMessage(BookReaderSurfaceView.DrawHandler.MESSAGE_DRAW_CURRENT_PAGE);
+//        }
     }
 
 
@@ -301,7 +381,21 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
         animator.setup(direction, getWidth(), getHeight(), null);
         animator.startAnimatedScrolling(pageIndex, x, y, 25);
         if (animator.getMode().Auto) {
-            postInvalidate();
+//            postInvalidate();
+//            if (!mPageFlip.isAnimating()) {
+
+                try {
+                    mLock.lock();
+                    requestRender();
+                } finally {
+                    mLock.unlock();
+                }
+//            }
+//            if (animator.inProgress()) {
+//                drawHandler.sendEmptyMessage(BookReaderSurfaceView.DrawHandler.MESSAGE_DRAW_ANIMATION_PAGES);
+//            } else {
+//                drawHandler.sendEmptyMessage(BookReaderSurfaceView.DrawHandler.MESSAGE_DRAW_CURRENT_PAGE);
+//            }
         }
     }
 
@@ -316,48 +410,41 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
         animator.setup(direction, getWidth(), getHeight(), null);
         animator.startAnimatedScrolling(pageIndex, null, null, 15);
         if (animator.getMode().Auto) {
-            postInvalidate();
+            if (animator.inProgress()) {
+                drawHandler.sendEmptyMessage(BookReaderSurfaceView.DrawHandler.MESSAGE_DRAW_ANIMATION_PAGES);
+            } else {
+                drawHandler.sendEmptyMessage(BookReaderSurfaceView.DrawHandler.MESSAGE_DRAW_CURRENT_PAGE);
+            }
         }
-
     }
 
     @Override
     public void repaint() {
         MyReadLog.i("repaint");
-//        postInvalidate();
-        postInvalidate();
+        try {
+            mLock.lock();
+            requestRender();
+        } finally {
+            mLock.unlock();
+        }
     }
 
-    @Override
     public void drawOnBitmap(Bitmap bitmap, int pageIndex) {
         BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
-//        if (dummyView == null) MyReadLog.i("dummyView is null!!!!!");
         dummyView.paint(bitmap, pageIndex);
     }
-
 
     private AnimationProvider myAnimationProvider;
     private BookViewEnums.Animation myAnimationType;
 
     private AnimationProvider getAnimationProvider() {
-        final BookViewEnums.Animation type = BookViewEnums.Animation.slide;
+        final BookViewEnums.Animation type = BookViewEnums.Animation.curl;
         if (myAnimationProvider == null || myAnimationType != type) {
             myAnimationType = type;
             switch (type) {
-                case none:
-                    myAnimationProvider = new NoneAnimationProvider(pageBitmapManager);
-                    break;
                 case curl:
                     myAnimationProvider = new CurlAnimationProvider(pageBitmapManager);
-                    break;
-                case slide:
-                    myAnimationProvider = new SlideAnimationProvider(pageBitmapManager);
-                    break;
-                case slideOldStyle:
-                    myAnimationProvider = new SlideOldStyleAnimationProvider(pageBitmapManager);
-                    break;
-                case shift:
-                    myAnimationProvider = new ShiftAnimationProvider(pageBitmapManager);
+                    ((CurlAnimationProvider) myAnimationProvider).setPageFlip(mPageFlip);
                     break;
             }
         }
@@ -374,9 +461,36 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
 
     }
 
+    class DrawHandler extends Handler {
+        static final int MESSAGE_DRAW_ANIMATION_PAGES = 0; // 按时绘制当前页面底部信息
 
-    @Override
-    public void setPageBitmapManager(PageBitmapManagerImpl pageBitmapManager) {
-        this.pageBitmapManager = pageBitmapManager;
+        public DrawHandler() {
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+//            MyReadLog.i("MSG.what = " + msg.what);
+            switch (msg.what) {
+                case MESSAGE_DRAW_ANIMATION_PAGES:
+//                    MyReadLog.i("animation pages draw");
+                    try {
+                        mLock.lock();
+                        requestRender();
+                    } finally {
+                        mLock.unlock();
+                    }
+                    break;
+                default:
+                    break;
+            }
+
+        }
+
+        /**
+         * 重置消息
+         */
+        public void reset() {
+            removeMessages(MESSAGE_DRAW_ANIMATION_PAGES);
+        }
     }
 }

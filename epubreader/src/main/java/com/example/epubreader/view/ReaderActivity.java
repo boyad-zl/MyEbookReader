@@ -1,8 +1,12 @@
 package com.example.epubreader.view;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
@@ -12,24 +16,31 @@ import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 
-import com.example.epubreader.BuildConfig;
 import com.example.epubreader.R;
 import com.example.epubreader.ReaderApplication;
 import com.example.epubreader.book.BookModel;
 import com.example.epubreader.book.BookResourceFile;
 import com.example.epubreader.book.toc.TocAdapter;
 import com.example.epubreader.book.toc.TocElement;
+import com.example.epubreader.config.ConfigShadow;
 import com.example.epubreader.util.BookAttributeUtil;
+import com.example.epubreader.util.BookConstract;
+import com.example.epubreader.util.BookSettings;
 import com.example.epubreader.util.MyReadLog;
+import com.example.epubreader.view.widget.BookReaderGLSurfaceView;
 import com.example.epubreader.view.widget.BookReaderView;
 
-import java.util.IllegalFormatCodePointException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class ReaderActivity extends AppCompatActivity implements View.OnClickListener, AdapterView.OnItemClickListener {
     private String bookPath;
     private BookModel bookModel;
     private ImageView epubPic;
+//    private BookReaderSurfaceView reader;
     private BookReaderView reader;
+    private BookReaderGLSurfaceView glReader;
     private TextView dayOrNightBtn;
     private TextView coverShowBtn;
     private boolean isShow = false;
@@ -39,10 +50,15 @@ public class ReaderActivity extends AppCompatActivity implements View.OnClickLis
     private ListView catalogListView;
     private TocAdapter mAdapter;
     private boolean isShowCatalog = false;
+    private boolean isCul;
+    private TextView culBtn;
+    private BroadcastReceiver mBroadcastReceiver;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         MyReadLog.i("==========onCreate===========");
 //        reader = new BookReaderView(this);
         setContentView(R.layout.activity_reader);
@@ -71,27 +87,88 @@ public class ReaderActivity extends AppCompatActivity implements View.OnClickLis
         catalogListView = (ListView) findViewById(R.id.list_view_catalog);
         catalogListView.setOnItemClickListener(this);
 
+        culBtn = (TextView) findViewById(R.id.btn_turn_cul);
+        culBtn.setOnClickListener(this);
+
+//        reader = (BookReaderSurfaceView) findViewById(R.id.main_reader_view);
         reader = (BookReaderView) findViewById(R.id.main_reader_view);
-        ReaderApplication.getInstance().setMyWidget(reader);
+        glReader = (BookReaderGLSurfaceView) findViewById(R.id.main_reader_gl_view);
+
+        initReceiver();
+    }
+
+    /**
+     * 初始化
+     */
+    private void initReceiver() {
+        mBroadcastReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                String action = intent.getAction();
+                onReceiveBroadcast(action, intent.getExtras());
+            }
+        };
+
+        IntentFilter intentFilter = new IntentFilter();
+        List<String> needAddActions = getReceiverFilterActions();
+        if (needAddActions != null) {
+            int size = needAddActions.size();
+            for (int i = 0; i < size; i++) {
+                intentFilter.addAction(needAddActions.get(i));
+            }
+        }
+        registerReceiver(mBroadcastReceiver, intentFilter);
+    }
+
+    private void onReceiveBroadcast(String action, Bundle extras) {
+        switch (action){
+            case BookConstract.ACTION_CONFIG_OPTION_CHANGE:
+                String group = (String) extras.get("group");
+                String name = (String) extras.get("name");
+                String value = (String) extras.get("value");
+
+                break;
+        }
+    }
+
+    private List<String> getReceiverFilterActions() {
+        return Arrays.asList(BookConstract.ACTION_CONFIG_OPTION_CHANGE);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+
+        isCul = BookSettings.getPageTurnAnimation();
+        updateCulBtn();
+        controlReadView(isCul);
         MyReadLog.i("==========onResume===========");
+    }
+
+    private void controlReadView(boolean isCul) {
+        if (isCul) {
+            glReader.setVisibility(View.VISIBLE);
+            reader.setVisibility(View.GONE);
+            ReaderApplication.getInstance().setMyWidget(glReader);
+        } else {
+            reader.setVisibility(View.VISIBLE);
+            glReader.setVisibility(View.GONE);
+            ReaderApplication.getInstance().setMyWidget(reader);
+        }
     }
 
 
     @Override
     protected void onPause() {
         super.onPause();
-        reader.onPause();
+//        reader.onPause();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        reader.onDestroy();
+        unregisterReceiver(mBroadcastReceiver);
+//        reader.onDestroy();
     }
 
     @Override
@@ -107,7 +184,20 @@ public class ReaderActivity extends AppCompatActivity implements View.OnClickLis
             showOrHidePic();
         } else if (i == R.id.btn_catalog_show) {
             showOrHideCatalog();
+        } else if (i == R.id.btn_turn_cul) {
+            toggleCulAnimation();
         }
+    }
+
+    private void toggleCulAnimation() {
+        isCul = !isCul;
+        updateCulBtn();
+        controlReadView(isCul);
+        ReaderApplication.getInstance().getMyWidget().repaint();
+    }
+
+    private void updateCulBtn() {
+       culBtn.setTextColor(isCul ? Color.RED : Color.DKGRAY);
     }
 
     private void showOrHideCatalog() {
@@ -134,7 +224,8 @@ public class ReaderActivity extends AppCompatActivity implements View.OnClickLis
                 }
             }
             epubPic.setImageBitmap(coverBitmap);
-            epubPic.setVisibility(View.VISIBLE);
+//            epubPic.setImageBitmap(reader.getPageBitmapManager().getBitmap(1));
+//            epubPic.setVisibility(View.VISIBLE);
         }
         isShow = !isShow;
     }

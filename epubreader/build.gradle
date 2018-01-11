@@ -23,7 +23,8 @@ android {
 
     sourceSets {
         main {
-            java.srcDirs = ['src/main/java','src/main/aidl']
+            java.srcDirs = ['src/main/java', 'src/main/aidl']
+            aidl.srcDirs = ['src/main/aidl', 'src/main/aidl/']
         }
     }
 }

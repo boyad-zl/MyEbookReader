@@ -411,7 +411,7 @@ public class EpubReaderHtml {
                 TocElement childElement = bookModel.tocElement.getElementAt(currentHtmlTocments.valueAt(i), true);
                 if (!TextUtils.isEmpty(inHtmlId.trim())) {
                     String inHtmlPosition = idPositions.get(inHtmlId);
-                    MyReadLog.i(inHtmlPosition);
+//                    MyReadLog.i(inHtmlPosition);
                     childElement.setPosition(inHtmlPosition);
                     String[] positions = inHtmlPosition.split("/");
                     BookReadPosition position;

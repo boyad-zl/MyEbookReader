@@ -1,20 +1,25 @@
 package com.example.epubreader;
 
 import android.app.Application;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
+import android.os.IBinder;
 import android.os.Process;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.WindowManager;
 
 import com.example.epubreader.book.BookModel;
+import com.example.epubreader.config.ConfigService;
+import com.example.epubreader.config.ConfigShadow;
 import com.example.epubreader.util.BookAttributeUtil;
 import com.example.epubreader.util.MyReadLog;
 import com.example.epubreader.view.book.BookDummyAbstractView;
 import com.example.epubreader.view.book.BookDummyView;
 import com.example.epubreader.view.book.BookReadPosition;
 import com.example.epubreader.view.widget.BookReadListener;
-import com.example.epubreader.view.widget.BookReaderView;
+import com.example.epubreader.view.widget.PageBitmapManagerImpl;
 import com.squareup.leakcanary.LeakCanary;
 import com.squareup.leakcanary.RefWatcher;
 
@@ -35,7 +40,8 @@ public class ReaderApplication extends Application {
     private DisplayMetrics dm;
     private int coreNumber; // 手机CPU的数量
     private RefWatcher watcher;
-    private SoftReference<BookReadListener> myWighet;
+    private SoftReference<BookReadListener> myWidget;
+    private PageBitmapManagerImpl pageBitmapManager;
 
     /**
      * 初始化
@@ -50,6 +56,7 @@ public class ReaderApplication extends Application {
             BookAttributeUtil.setEmSize(20); //  TODO TEST 设置字体大小
             coreNumber = getNumCores();
             MyReadLog.i("coreNumber = " + coreNumber);
+            ConfigShadow configShadow = new ConfigShadow(this);
         }
     }
 
@@ -121,11 +128,16 @@ public class ReaderApplication extends Application {
     }
 
     public BookReadListener getMyWidget() {
-        return myWighet.get();
+        return myWidget.get();
     }
 
     public void setMyWidget(BookReadListener myWidget) {
-        this.myWighet = new SoftReference<>(myWidget);
+        this.myWidget = new SoftReference<>(myWidget);
+        if (pageBitmapManager == null) {
+            pageBitmapManager = new PageBitmapManagerImpl();
+            pageBitmapManager.setSize(getWindowSize().widthPixels, getWindowSize().heightPixels);
+        }
+        this.myWidget.get().setPageBitmapManager(pageBitmapManager);
 //        this.myWidget = myWidget;
     }
 

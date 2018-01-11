@@ -68,6 +68,7 @@ public class BookTextImageElement extends BookTextBaseElement {
      * @return
      */
     public Bitmap createBitmap(InputStream inputStream) {
+        MyReadLog.i("createBitmap~~~~");
         Bitmap newBitmap = null;
         if (width > 0 && height > 0) {
             Bitmap bitmap = BitmapFactory.decodeStream(inputStream);

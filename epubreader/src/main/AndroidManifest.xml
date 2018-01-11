@@ -10,6 +10,14 @@
         android:supportsRtl="true">
         <activity android:name=".view.ReaderActivity" />
         <activity android:name=".view.TestActivity"></activity>
+
+        <service
+            android:name=".config.ConfigService"
+            android:launchMode ="singleTask"
+            android:process=":configService">
+
+        </service>
     </application>
+
 
 </manifest>

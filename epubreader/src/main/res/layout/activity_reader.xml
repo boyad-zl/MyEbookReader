@@ -1,13 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@android:color/white">
 
-    <com.example.epubreader.view.widget.BookReaderView
+   <!-- <com.example.epubreader.view.widget.BookReaderSurfaceView
         android:id="@+id/main_reader_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent" />-->
 
+    <com.example.epubreader.view.widget.BookReaderView
+    android:id="@+id/main_reader_view"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent" />
+
+    <com.example.epubreader.view.widget.BookReaderGLSurfaceView
+        android:id="@+id/main_reader_gl_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"/>
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="50dp"
@@ -64,6 +75,15 @@
             android:gravity="center"
             android:text="目录" />
 
+        <TextView
+            android:id="@+id/btn_turn_cul"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginLeft="10dp"
+            android:alpha="0.3"
+            android:background="@android:color/darker_gray"
+            android:gravity="center"
+            android:text="仿"/>
 
     </LinearLayout>
 
