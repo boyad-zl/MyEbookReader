@@ -11,5 +11,6 @@ pure java read Epub
 按钮点击以后进入文件导入界面（想左翻）点击文件，将epub文件导入数据库，然后左滑可见到数据库内导入的电子书。
 如果你在使用过程中遇到什么问题，请联系我：[zhoule_007@sina.com][1]
 
-
-  [1]: zhoule_007@sina.com
+  [1]: zhoule_007@sina.com
+截图
+![](https://github.com/booyunzhoule/MyEbookReader/blob/master/%E6%88%AA%E5%9B%BE/Screenshot_2018-01-31-16-59-07.png,"main")
