@@ -16,7 +16,7 @@ pure java read Epub
   
 截图
 
-![](https://github.com/booyunzhoule/MyEbookReader/blob/master/%E6%88%AA%E5%9B%BE/Screenshot_2018-01-31-16-59-07.png,"main")
+![](https://github.com/booyunzhoule/MyEbookReader/blob/master/%E6%88%AA%E5%9B%BE/Screenshot_2018-01-31-16-59-07.png?raw=true,"main")
 
 ![](https://github.com/booyunzhoule/MyEbookReader/blob/master/%E6%88%AA%E5%9B%BE/Screenshot_2018-01-31-16-59-20.png,"main")
 
