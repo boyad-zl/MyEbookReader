@@ -1,7 +1,5 @@
 # LittleFurReader
 
-标签（空格分隔）： FBReader EBook e-book epub EPUB
-
 ---
 
 pure java read Epub 
