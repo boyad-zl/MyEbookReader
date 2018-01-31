@@ -2,6 +2,7 @@ package com.example.epubreader.view.book;
 
 import android.graphics.Bitmap;
 
+import com.example.epubreader.BookControlCenter;
 import com.example.epubreader.ReaderApplication;
 
 import java.util.ArrayList;
@@ -11,11 +12,10 @@ import java.util.ArrayList;
  */
 
 public abstract class BookDummyAbstractView implements BookViewEnums{
-    public final ReaderApplication application;
-    boolean isDayModel = true;
+    public final BookControlCenter controlCenter;
 
-    public BookDummyAbstractView(ReaderApplication application) {
-        this.application = application;
+    public BookDummyAbstractView(BookControlCenter controlCenter) {
+        this.controlCenter = controlCenter;
     }
 
     public abstract boolean canScroll(boolean isForward);
@@ -31,14 +31,6 @@ public abstract class BookDummyAbstractView implements BookViewEnums{
     public abstract void jumpLinkHref(String href);
 
     public abstract void preparePage(BookReadPosition position);
-
-    public boolean isDayModel() {
-        return isDayModel;
-    }
-
-    public void setDayModel(boolean dayModel) {
-        isDayModel = dayModel;
-    }
 
     public abstract void onFingerPress(int x, int y);
     public abstract void onFingerMove(int x, int y);

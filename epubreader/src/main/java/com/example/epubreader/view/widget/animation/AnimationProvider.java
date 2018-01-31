@@ -212,10 +212,10 @@ public abstract class AnimationProvider {
     public abstract void doStep();
 
     public final void draw(Canvas canvas) {
-        long start = System.currentTimeMillis();
+//        long start = System.currentTimeMillis();
         setFilter();
         drawInternal(canvas);
-        MyReadLog.i("draw a frame cost time is " + (System.currentTimeMillis() - start));
+//        MyReadLog.i("draw a frame cost time is " + (System.currentTimeMillis() - start));
     }
 
     protected abstract void drawInternal(Canvas canvas);

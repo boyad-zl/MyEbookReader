@@ -77,4 +77,5 @@ dependencies {
     testCompile 'junit:junit:4.12'
     compile project(':epubreader')
     debugCompile 'com.amitshekhar.android:debug-db:1.0.0'
+    compile 'net.soulwolf.widget:ratiolayout:1.0.0'
 }

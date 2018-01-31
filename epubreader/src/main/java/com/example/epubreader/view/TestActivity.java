@@ -32,11 +32,11 @@ public class TestActivity extends AppCompatActivity {
         Intent intent = getIntent();
         bookPath = intent.getStringExtra("BOOK_PATH");
 //        bookModel = new BookModel(bookPath);
-        if (ReaderApplication.getInstance().getBookModel() == null || !ReaderApplication.getInstance().getBookModel().getEpubPath().equals(bookPath)) {
-            ReaderApplication.getInstance().createBookModel(bookPath);
-        }
-        bookModel = ReaderApplication.getInstance().getBookModel();
-        bookDummyView = ReaderApplication.getInstance().getDummyView();
+//        if (ReaderApplication.getInstance().getBookModel() == null || !ReaderApplication.getInstance().getBookModel().getEpubPath().equals(bookPath)) {
+//            ReaderApplication.getInstance().createBookModel(bookPath);
+//        }
+//        bookModel = ReaderApplication.getInstance().getBookModel();
+//        bookDummyView = ReaderApplication.getInstance().getDummyView();
     }
 
     @Override

@@ -19,10 +19,12 @@ import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.ViewConfiguration;
 
+import com.example.epubreader.BookControlCenter;
 import com.example.epubreader.R;
 import com.example.epubreader.ReaderApplication;
 import com.example.epubreader.util.BookUIHelper;
 import com.example.epubreader.util.MyReadLog;
+import com.example.epubreader.view.ReaderActivity;
 import com.example.epubreader.view.book.BookDummyAbstractView;
 import com.example.epubreader.view.book.BookViewEnums;
 import com.example.epubreader.view.widget.animation.AnimationProvider;
@@ -134,10 +136,16 @@ public class BookReaderGLSurfaceView extends GLSurfaceView implements View.OnLon
         try {
             mLock.lock();
 //            MyReadLog.i("onDrawFrame");
+            if (mContext instanceof ReaderActivity) {
+                ((ReaderActivity) mContext).createWakeLock();
+            } else {
+                System.err.println("view's context is not ReaderActivity");
+            }
             final AnimationProvider animator = getAnimationProvider();
             if (animator.isProgress()) {
 //                MyReadLog.i("drawScrolling");
-                final BookDummyAbstractView view = ReaderApplication.getInstance().getDummyView();
+//                final BookDummyAbstractView view = ReaderApplication.getInstance().getDummyView();
+                final BookDummyAbstractView view = BookControlCenter.Instance().getCurrentView();
                 final AnimationProvider.Mode oldMode = animator.getMode();
 //                MyReadLog.i("Mode ："+oldMode);
                 animator.doStep();
@@ -206,7 +214,8 @@ public class BookReaderGLSurfaceView extends GLSurfaceView implements View.OnLon
     private class ShortClickRunnable implements Runnable {
         @Override
         public void run() {
-            final BookDummyAbstractView view = ReaderApplication.getInstance().getDummyView();
+//            final BookDummyAbstractView view = ReaderApplication.getInstance().getDummyView();
+            final BookDummyAbstractView view = BookControlCenter.Instance().getCurrentView();
             view.onFingerSingleTap(myPressedX, myPressedY);
             myPendingPress = false;
             myPendingShortClickRunnable = null;
@@ -223,7 +232,8 @@ public class BookReaderGLSurfaceView extends GLSurfaceView implements View.OnLon
     public boolean onTouchEvent(MotionEvent event) {
         int x = (int) event.getX();
         int y = (int) event.getY();
-        BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
+//        BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
         switch (event.getAction()) {
             case MotionEvent.ACTION_CANCEL:
                 MyReadLog.i("MotionEvent.ACTION_CANCEL");
@@ -305,7 +315,8 @@ public class BookReaderGLSurfaceView extends GLSurfaceView implements View.OnLon
 
     @Override
     public boolean onLongClick(View v) {
-        BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+//        BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
         return dummyView.onFingerLongPress(myPressedX, myPressedY);
     }
 
@@ -321,7 +332,8 @@ public class BookReaderGLSurfaceView extends GLSurfaceView implements View.OnLon
 
     @Override
     public void scrollManuallyTo(int x, int y) {
-        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+//        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        final BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
         final AnimationProvider animator = getAnimationProvider();
         int pageIndex = animator.getPageToScrollTo(x, y);
 //        MyReadLog.i("scrollManuallyTo");
@@ -345,7 +357,8 @@ public class BookReaderGLSurfaceView extends GLSurfaceView implements View.OnLon
 
     @Override
     public void startAnimatedScrolling(int x, int y) {
-        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+//        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        final BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
         final AnimationProvider animation = getAnimationProvider();
         if (!dummyView.canScroll(animation.getPageToScrollTo(x, y) == PAGE_POSITION_INDEX_NEXT)) {
             animation.terminate();
@@ -372,7 +385,8 @@ public class BookReaderGLSurfaceView extends GLSurfaceView implements View.OnLon
 
     @Override
     public void startAnimatedScrolling(int pageIndex, int x, int y, BookViewEnums.Direction direction) {
-        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+//        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        final BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
         if (pageIndex == PAGE_POSITION_INDEX_CURRENT || !dummyView.canScroll(pageIndex == PAGE_POSITION_INDEX_NEXT)) {
             return;
         }
@@ -401,7 +415,8 @@ public class BookReaderGLSurfaceView extends GLSurfaceView implements View.OnLon
 
     @Override
     public void startAnimatedScrolling(int pageIndex, BookViewEnums.Direction direction) {
-        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+//        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        final BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
         if (pageIndex == PAGE_POSITION_INDEX_CURRENT || !dummyView.canScroll(pageIndex == PAGE_POSITION_INDEX_NEXT)) {
             return;
         }
@@ -430,7 +445,8 @@ public class BookReaderGLSurfaceView extends GLSurfaceView implements View.OnLon
     }
 
     public void drawOnBitmap(Bitmap bitmap, int pageIndex) {
-        BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+//        BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
         dummyView.paint(bitmap, pageIndex);
     }
 

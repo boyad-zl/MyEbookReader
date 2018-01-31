@@ -32,4 +32,9 @@ public class BookTextLineBreakElement extends BookTextBaseElement {
         width = -1;
         height = fontSize;
     }
+
+    @Override
+    public String getContentStr() {
+        return " ";
+    }
 }

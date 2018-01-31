@@ -1,6 +1,7 @@
 package com.example.epubreader.util;
 
 import android.graphics.Paint;
+import android.graphics.Typeface;
 import android.text.TextUtils;
 import android.util.SparseArray;
 
@@ -12,9 +13,20 @@ public class StringWidthMeasureHelper {
     private static SparseArray<Float> charWidthSparseArray = new SparseArray();
     private static final float VALUE_IF_KEY_NOT_FOUND = -2;
     private static final int BASE_FONT_SIZE = 100;// 默认字体大小
+    private static Typeface measureTypeface  = Typeface.SERIF; //默认字体
     private static Paint measurePaint = new Paint();
     static {
         measurePaint.setTextSize(BASE_FONT_SIZE);
+        measurePaint.setTypeface(measureTypeface);
+    }
+
+    public static void setMeasureTypeface(Typeface typeface) {
+        if (typeface != null && !measurePaint.equals(typeface)) {
+            measureTypeface = typeface;
+            measurePaint.setTypeface(measureTypeface);
+            charWidthSparseArray.clear();
+            BookContentDrawHelper.setDrawTypeface(measureTypeface);
+        }
     }
 
     public static float getStringWidth(String word) {

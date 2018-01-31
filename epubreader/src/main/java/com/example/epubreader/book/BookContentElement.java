@@ -66,13 +66,11 @@ public class BookContentElement {
         }
         BookContentElement bookContentElement = new BookContentElement(this, contentChar);
         bookContentElement.setIndex(contentElements.size());
-//        bookContentElement.handleWordElements();
         bookContentElement.getOnlyWordElements();
 //        MyReadLog.i("size = " + contentElements.size());
         contentElements.add(bookContentElement);
 
     }
-
 
     /**
      * 向当前元素中添加子元素
@@ -88,7 +86,6 @@ public class BookContentElement {
         element.setIndex(contentElements.size());
         contentElements.add(element);
     }
-
 
     /**
      * 设置元素位置
@@ -119,7 +116,6 @@ public class BookContentElement {
     public BookContentElement getParent() {
         return this.parent;
     }
-
 
     /**
      * 获取当前元素的某上层次的元素
@@ -293,129 +289,6 @@ public class BookContentElement {
     }
 
     /**
-     * 处理 content 不是空的BookContentElement 将其内部的字符串转换成 ArrayList<BookTextBaseElement> words,
-     * 每个并设置好BookTextBaseElement的baseWidth
-     *
-     * @return
-     */
-    public void handleWordElements() {
-        if (words == null) {
-            words = new ArrayList<>();
-        }
-        if (!TextUtils.isEmpty(content)) {
-            char[] contentChars = content.toCharArray();
-            float[] charWidths = StringWidthMeasureHelper.getStringCharWidths(content);
-            int index = 0;
-            StringBuffer sb = new StringBuffer();
-            BookTextBaseElement element;
-            int lastCharType = -1;
-            boolean needBreakFromLastChar = false; // 是否需要从上一个元素开始将StringBuffer里面的字符串转化成BookTextWordElement
-            while (index < contentChars.length) {
-                if (contentChars[index] != '&') {
-                    sb.append(contentChars[index]);
-                    int currentCharType = Character.getType(contentChars[index]);
-                    if (lastCharType != -1 && sb.length() > 0) {
-
-                        switch (currentCharType) {
-                            case Character.DECIMAL_DIGIT_NUMBER:
-                                if (lastCharType != Character.DECIMAL_DIGIT_NUMBER) {
-                                    needBreakFromLastChar = true;
-                                }
-                                break;
-                            case Character.OTHER_LETTER:
-                                if (lastCharType != Character.START_PUNCTUATION
-                                        && lastCharType != Character.INITIAL_QUOTE_PUNCTUATION
-                                        && lastCharType != Character.SPACE_SEPARATOR) {
-                                    needBreakFromLastChar = true;
-                                }
-
-                                break;
-                            case Character.UPPERCASE_LETTER:
-                            case Character.LOWERCASE_LETTER:
-//                        case Character.CONNECTOR_PUNCTUATION:
-                                if (lastCharType != Character.UPPERCASE_LETTER && lastCharType != Character.LOWERCASE_LETTER) {
-                                    needBreakFromLastChar = true;
-                                }
-                                break;
-                            case Character.START_PUNCTUATION:
-                            case Character.INITIAL_QUOTE_PUNCTUATION:
-                                if (lastCharType != Character.START_PUNCTUATION && lastCharType != Character.INITIAL_QUOTE_PUNCTUATION) {
-                                    needBreakFromLastChar = true;
-                                }
-                                break;
-                            case Character.END_PUNCTUATION:
-                            case Character.FINAL_QUOTE_PUNCTUATION:
-                                break;
-                            case Character.SPACE_SEPARATOR:
-                                needBreakFromLastChar = true;
-                                break;
-                            case Character.OTHER_PUNCTUATION:
-                            case Character.OTHER_SYMBOL:
-                                break;
-                            case Character.DASH_PUNCTUATION:
-                                if (lastCharType != Character.DASH_PUNCTUATION)
-                                    needBreakFromLastChar = true;
-                                break;
-                            default:
-                                break;
-                        }
-                        if (needBreakFromLastChar) {
-                            String word = sb.substring(0, sb.length() - 1);
-                            element = new BookTextWordElement(word, this);
-//                        element.setBaseWidth(paint.measureText(word));
-                            float baseWidth = 0;
-                            for (int i = index - sb.length() + 1; i < index; i++) {
-                                baseWidth += charWidths[i];
-                            }
-                            element.setBaseWidth(baseWidth);
-                            element.setIndex(index - sb.length() + 1);
-                            sb.delete(0, sb.length() - 1);
-                            words.add(element);
-                            needBreakFromLastChar = false;
-                        }
-                    }
-                    lastCharType = currentCharType;
-                    index++;
-                } else {
-                    if (sb.length() > 0) {
-                        element = new BookTextWordElement(sb.toString(), this);
-                        element.setIndex(index - sb.length());
-                        float baseWidth = 0;
-                        for (int i = index - sb.length() + 1; i < index; i++) {
-                            baseWidth += charWidths[i];
-                        }
-                        element.setBaseWidth(baseWidth);
-                        sb.setLength(0);
-                        words.add(element);
-                    }
-                    if (contentChars.length - index >= 6 && (String.valueOf(contentChars, index, 6).equals("&nbsp;"))) {
-//                    MyReadLog.i("subString = " + String.valueOf(contentChars, index, index + 6) + " index = " + index + "index + 6 = " + (index + 6));
-                        element = new BookTextNbspElement(this);
-                        element.setIndex(index);
-                        index = index + 6;
-                        lastCharType = -1;
-                    } else {
-                        element = new BookTextWordElement("&", this);
-                        element.setIndex(index);
-                        element.setBaseWidth(StringWidthMeasureHelper.getCharWidth('&'));
-                        index = index + 1;
-                        lastCharType = Character.OTHER_PUNCTUATION;
-                    }
-                    words.add(element);
-                }
-            }
-            if (sb.length() > 0) {
-                element = new BookTextWordElement(sb.toString(), this);
-                element.setIndex(index - sb.length() + 1);
-//            element.setBaseWidth(paint.measureText(sb.toString()));
-                element.setBaseWidth(StringWidthMeasureHelper.getStringWidth(sb.toString()));
-                sb.setLength(0);
-                words.add(element);
-            }
-        }
-    }
-
-    /**
      * 获取用户显示的元素（文字和图片）
      *
      * @return
@@ -440,7 +313,6 @@ public class BookContentElement {
         }
         return result;
     }
-
 
     /**
      * 是否当前元素是段落开始

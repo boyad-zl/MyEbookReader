@@ -47,6 +47,7 @@ public abstract class BookTextBaseElement {
 
     public abstract void measureSize(int fontSize, Paint paint);
 
+    public abstract String getContentStr();
     /**
      * 获取所有属性（包含父标签的属性）
      *
@@ -139,7 +140,6 @@ public abstract class BookTextBaseElement {
     public String getPosition() {
         return contentElement.getPosition() + "/" + index;
     }
-
 
     public BookContentElement getContentElement() {
         return contentElement;

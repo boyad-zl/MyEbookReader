@@ -7,12 +7,17 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.util.AttributeSet;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 
+import com.example.epubreader.BookControlCenter;
+import com.example.epubreader.BookReadControlCenter;
 import com.example.epubreader.ReaderApplication;
+import com.example.epubreader.book.BookResourceFile;
 import com.example.epubreader.util.MyReadLog;
+import com.example.epubreader.view.ReaderActivity;
 import com.example.epubreader.view.book.BookDummyAbstractView;
 import com.example.epubreader.view.book.BookViewEnums;
 import com.example.epubreader.view.widget.animation.AnimationProvider;
@@ -51,7 +56,6 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
         super(context);
         mContext = context;
         init();
-
     }
 
     public BookReaderView(Context context, AttributeSet attrs) {
@@ -71,7 +75,6 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
      */
     private void init() {
         MyReadLog.i("view init !!!");
-
 //        pageBitmapManager = new PageBitmapManagerImpl();
         selectedPaint.setColor(Color.argb(0x58, 0, 0, 0xff));
         setFocusableInTouchMode(true);
@@ -79,16 +82,20 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
         setOnLongClickListener(this);
     }
 
-    long lastDrawTime ;
+    private long lastDrawTime ;
     @Override
     protected void onDraw(Canvas canvas) {
+        if (mContext instanceof ReaderActivity) {
+            ((ReaderActivity) mContext).createWakeLock();
+        } else {
+            System.err.println("view's context is not ReaderActivity");
+        }
         pageBitmapManager.setSize(getWidth(), getHeight());
         if (getAnimationProvider().inProgress()) {
             onDrawInScrolling(canvas);
-            long FinishDrawTime = System.currentTimeMillis();
-            MyReadLog.i("动画之间的时间间距是" + (FinishDrawTime - lastDrawTime));
-            lastDrawTime = FinishDrawTime;
-
+//            long FinishDrawTime = System.currentTimeMillis();
+//            MyReadLog.i("动画之间的时间间距是" + (FinishDrawTime - lastDrawTime));
+//            lastDrawTime = FinishDrawTime;
         } else {
             onDrawStatic(canvas);
         }
@@ -100,7 +107,8 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
 
     private void onDrawInScrolling(Canvas canvas) {
 //                    MyReadLog.i("MESSAGE_DRAW_ANIMATION_PAGES");
-        final BookDummyAbstractView view = ReaderApplication.getInstance().getDummyView();
+//        final BookDummyAbstractView view = ReaderApplication.getInstance().getDummyView();
+        final BookDummyAbstractView view = BookControlCenter.Instance().getCurrentView();
         final AnimationProvider animator = getAnimationProvider();
         final AnimationProvider.Mode oldMode = animator.getMode();
         animator.doStep();
@@ -128,6 +136,24 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
         }
     }
 
+    @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+        MyReadLog.d("onSizeChanged, w = %d, h = %d, oldw = %d, oldh = " + w, h, oldw, oldh);
+        getAnimationProvider().terminate();
+        if (myScreenIsTouched) {
+            myScreenIsTouched = false;
+            BookControlCenter.Instance().getCurrentView().onScrollingFinished(PAGE_POSITION_INDEX_CURRENT);
+        }
+        if ((w > h && oldw < oldh) || (w < h && oldw > oldh)){
+            MyReadLog.i("需要重新绘制！");
+            BookControlCenter.Instance().getCurrentView().preparePage(null);
+            reset();
+            repaint();
+            ((BookReadControlCenter) BookControlCenter.Instance()).calculateTotalPages();
+        }
+    }
+
     private class LongClickRunnable implements Runnable {
         @Override
         public void run() {
@@ -152,7 +178,8 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
     private class ShortClickRunnable implements Runnable {
         @Override
         public void run() {
-            final BookDummyAbstractView view = ReaderApplication.getInstance().getDummyView();
+//            final BookDummyAbstractView view = ReaderApplication.getInstance().getDummyView();
+            final BookDummyAbstractView view = BookControlCenter.Instance().getCurrentView();
             view.onFingerSingleTap(myPressedX, myPressedY);
             myPendingPress = false;
             myPendingShortClickRunnable = null;
@@ -170,7 +197,8 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
     public boolean onTouchEvent(MotionEvent event) {
         int x = (int) event.getX();
         int y = (int) event.getY();
-        BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+//        BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
         switch (event.getAction()) {
             case MotionEvent.ACTION_CANCEL:
                 MyReadLog.i("MotionEvent.ACTION_CANCEL");
@@ -252,7 +280,8 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
 
     @Override
     public boolean onLongClick(View v) {
-        BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+//        BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
         return dummyView.onFingerLongPress(myPressedX, myPressedY);
     }
 
@@ -266,7 +295,8 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
 
     @Override
     public void scrollManuallyTo(int x, int y) {
-        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+//        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        final BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
         final AnimationProvider animator = getAnimationProvider();
         int pageIndex = animator.getPageToScrollTo(x, y);
         MyReadLog.i("scrollManuallyTo");
@@ -278,7 +308,8 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
 
     @Override
     public void startAnimatedScrolling(int x, int y) {
-        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+//        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        final BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
         final AnimationProvider animation = getAnimationProvider();
         if (!dummyView.canScroll(animation.getPageToScrollTo(x, y) == PAGE_POSITION_INDEX_NEXT)) {
             animation.terminate();
@@ -292,7 +323,8 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
 
     @Override
     public void startAnimatedScrolling(int pageIndex, int x, int y, BookViewEnums.Direction direction) {
-        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+//        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        final BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
         if (pageIndex == PAGE_POSITION_INDEX_CURRENT || !dummyView.canScroll(pageIndex == PAGE_POSITION_INDEX_NEXT)) {
             return;
         }
@@ -307,7 +339,8 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
 
     @Override
     public void startAnimatedScrolling(int pageIndex, BookViewEnums.Direction direction) {
-        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+//        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        final BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
         if (pageIndex == PAGE_POSITION_INDEX_CURRENT || !dummyView.canScroll(pageIndex == PAGE_POSITION_INDEX_NEXT)) {
             return;
         }
@@ -324,17 +357,14 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
     @Override
     public void repaint() {
         MyReadLog.i("repaint");
-//        postInvalidate();
         postInvalidate();
     }
 
     @Override
     public void drawOnBitmap(Bitmap bitmap, int pageIndex) {
-        BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
-//        if (dummyView == null) MyReadLog.i("dummyView is null!!!!!");
+        BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
         dummyView.paint(bitmap, pageIndex);
     }
-
 
     private AnimationProvider myAnimationProvider;
     private BookViewEnums.Animation myAnimationType;
@@ -374,9 +404,33 @@ public class BookReaderView extends View implements View.OnLongClickListener, Bo
 
     }
 
-
-    @Override
     public void setPageBitmapManager(PageBitmapManagerImpl pageBitmapManager) {
         this.pageBitmapManager = pageBitmapManager;
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_VOLUME_UP:
+                MyReadLog.i("key down KEYCODE_VOLUME_UP");
+                break;
+            case KeyEvent.KEYCODE_VOLUME_DOWN:
+                MyReadLog.i("key down KEYCODE_VOLUME_DOWN");
+                break;
+        }
+        return true;
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_VOLUME_UP:
+                MyReadLog.i("key up KEYCODE_VOLUME_UP");
+                break;
+            case KeyEvent.KEYCODE_VOLUME_DOWN:
+                MyReadLog.i("key up KEYCODE_VOLUME_DOWN");
+                break;
+        }
+        return true;
     }
 }

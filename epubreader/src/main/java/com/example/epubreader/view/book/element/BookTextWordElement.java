@@ -20,9 +20,11 @@ public class BookTextWordElement extends BookTextBaseElement {
     private final int offset;
     private final int length;
     private boolean isSingleChinese = false;
+    private final String content;
 
     public BookTextWordElement(String s, BookContentElement bookContentElement) {
         super(bookContentElement);
+         content = s;
         data = s.toCharArray();
         offset = 0;
         length = data.length;
@@ -32,6 +34,7 @@ public class BookTextWordElement extends BookTextBaseElement {
 
     public BookTextWordElement(char c, BookContentElement bookContentElement, boolean isSingleChinese) {
         super(bookContentElement);
+        content = c+"";
         data = new char[]{c};
         offset = 0;
         length = data.length;
@@ -41,6 +44,7 @@ public class BookTextWordElement extends BookTextBaseElement {
 
     public BookTextWordElement(String s, BookContentElement bookContentElement, boolean isSingleChinese ) {
         super(bookContentElement);
+        content = s;
         data = s.toCharArray();
         offset = 0;
         length = data.length;
@@ -107,6 +111,9 @@ public class BookTextWordElement extends BookTextBaseElement {
         return (int) paint.measureText(content, start, length);
     }
 
-
+    @Override
+    public String getContentStr() {
+        return content;
+    }
 }
 

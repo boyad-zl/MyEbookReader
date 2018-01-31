@@ -21,11 +21,9 @@ public interface BookReadListener {
     void startAnimatedScrolling(int pageIndex, BookViewEnums.Direction direction);
     void startAnimatedScrolling(int x, int y);
 
-
     void drawSelectedRegion(List<Rect> rects);
 
     void drawOnBitmap(Bitmap myBitmap, int pageIndex);
-    public void setPageBitmapManager(PageBitmapManagerImpl pageBitmapManager);
 //    void setScreenBrightness(int percent);
 //    int getScreenBrightness();
 }

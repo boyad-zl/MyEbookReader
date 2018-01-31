@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginLeft="5dp"
+    android:layout_marginRight="5dp"
+    android:background="@drawable/shape_selection_panel_bg"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="45dp"
+        android:layout_marginLeft="5dp"
+        android:layout_marginRight="5dp"
+        android:orientation="horizontal">
+
+        <FrameLayout
+            android:id="@+id/selection_panel_draw_line_btn"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="划线"
+                android:textColor="@android:color/white"
+                android:textSize="15sp" />
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/selection_panel_copy_btn"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="复制"
+                android:textColor="@android:color/white"
+                android:textSize="15sp" />
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/selection_panel_dictionary_btn"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="字典"
+                android:textColor="@android:color/white"
+                android:textSize="15sp" />
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/selection_panel_share_btn"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="分享"
+                android:textColor="@android:color/white"
+                android:textSize="15sp" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="45dp">
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="horizontal">
+
+
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

@@ -38,4 +38,9 @@ public class BookTextNbspElement extends BookTextBaseElement {
         width = BookStingUtil.getStringWidth(fontSize, ("  ").toCharArray(), 0, 2, paint);
         height = fontSize;
     }
+
+    @Override
+    public String getContentStr() {
+        return " ";
+    }
 }

@@ -1,19 +1,14 @@
 package com.example.epubreader;
 
 import android.app.Application;
-import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
-import android.content.ServiceConnection;
-import android.os.IBinder;
 import android.os.Process;
 import android.util.DisplayMetrics;
 import android.view.WindowManager;
 
 import com.example.epubreader.book.BookModel;
-import com.example.epubreader.config.ConfigService;
-import com.example.epubreader.config.ConfigShadow;
-import com.example.epubreader.util.BookAttributeUtil;
+import com.example.epubreader.db.LibraryShadow;
+import com.example.epubreader.util.BookUIHelper;
 import com.example.epubreader.util.MyReadLog;
 import com.example.epubreader.view.book.BookDummyAbstractView;
 import com.example.epubreader.view.book.BookDummyView;
@@ -36,12 +31,13 @@ public class ReaderApplication extends Application {
     private static ReaderApplication sInstance;
     private BookModel bookModel;
     private BookDummyAbstractView dummyView;
-//    private BookReadListener myWidget;
+    //    private BookReadListener myWidget;
     private DisplayMetrics dm;
     private int coreNumber; // 手机CPU的数量
     private RefWatcher watcher;
     private SoftReference<BookReadListener> myWidget;
     private PageBitmapManagerImpl pageBitmapManager;
+    private LibraryShadow libraryShadow;
 
     /**
      * 初始化
@@ -53,15 +49,15 @@ public class ReaderApplication extends Application {
         if (sInstance == null) {
             sInstance = this;
             watcher = LeakCanary.install(this);
-            BookAttributeUtil.setEmSize(20); //  TODO TEST 设置字体大小
             coreNumber = getNumCores();
             MyReadLog.i("coreNumber = " + coreNumber);
-            ConfigShadow configShadow = new ConfigShadow(this);
+            libraryShadow = new LibraryShadow(this);
         }
     }
 
     /**
-     * 获取手机CPU核数
+     * todo test获取手机CPU核数
+     *
      * @return
      */
     private int getNumCores() {
@@ -101,55 +97,15 @@ public class ReaderApplication extends Application {
         return sInstance;
     }
 
-    /**
-     * 创建BookModel
-     *
-     * @param filePath
-     */
-    public void createBookModel(final String filePath) {
-        bookModel = new BookModel(filePath);
-        dummyView = new BookDummyView(this);
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                long startTime = System.currentTimeMillis();
-                bookModel.decodeEpubMeta(filePath);
-                MyReadLog.i("解析元数据完成:" + (System.currentTimeMillis() - startTime));
-            }
-        }).start();
-    }
-
-    public BookModel getBookModel() {
-        return bookModel;
-    }
-
-    public BookDummyAbstractView getDummyView() {
-        return dummyView;
-    }
-
-    public BookReadListener getMyWidget() {
-        return myWidget.get();
-    }
-
-    public void setMyWidget(BookReadListener myWidget) {
-        this.myWidget = new SoftReference<>(myWidget);
-        if (pageBitmapManager == null) {
-            pageBitmapManager = new PageBitmapManagerImpl();
-            pageBitmapManager.setSize(getWindowSize().widthPixels, getWindowSize().heightPixels);
-        }
-        this.myWidget.get().setPageBitmapManager(pageBitmapManager);
-//        this.myWidget = myWidget;
-    }
-
-    public int getCoreNumber() {
-        return coreNumber;
-    }
-
-    public synchronized void gotoPosition(BookReadPosition position){
-
-    }
-
     public RefWatcher getWatcher() {
         return watcher;
+    }
+
+    public LibraryShadow getLibraryShadow() {
+        return libraryShadow;
+    }
+
+    public void resetSize(DisplayMetrics dm) {
+        this.dm = dm;
     }
 }

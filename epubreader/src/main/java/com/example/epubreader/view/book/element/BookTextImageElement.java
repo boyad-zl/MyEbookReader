@@ -131,4 +131,9 @@ public class BookTextImageElement extends BookTextBaseElement {
     public void measureSize(int fontSize, Paint paint) {
 
     }
+
+    @Override
+    public String getContentStr() {
+        return controlTag.altStr;
+    }
 }

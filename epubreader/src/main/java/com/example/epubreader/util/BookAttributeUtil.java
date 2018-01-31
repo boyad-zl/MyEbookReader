@@ -4,8 +4,6 @@ import android.support.v4.util.ArrayMap;
 import com.example.epubreader.ReaderApplication;
 import com.example.epubreader.book.css.BookTagAttribute;
 
-import java.util.IllegalFormatCodePointException;
-
 /**
  * 属性哦工具类
  * Created by Boyad on 2017/11/10.
@@ -29,7 +27,6 @@ public class BookAttributeUtil {
     public static int settingFontSize = 20;
     public static final int MIN_SETTING_FONT_SIZE = 12; //最小字体大小
     public static final int MAX_SETTING_FONT_SIZE = 28; // 最大字体大小
-
 
     /**
      * 设置1em的大小

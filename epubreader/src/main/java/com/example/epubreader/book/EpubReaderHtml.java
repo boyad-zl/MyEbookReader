@@ -11,6 +11,8 @@ import com.example.epubreader.book.tag.BookBasicControlTag;
 import com.example.epubreader.book.tag.ImageControlTag;
 import com.example.epubreader.book.toc.TocElement;
 import com.example.epubreader.util.BookAttributeUtil;
+import com.example.epubreader.util.BookContentDrawHelper;
+import com.example.epubreader.util.BookUIHelper;
 import com.example.epubreader.util.MyReadLog;
 import com.example.epubreader.view.book.BookLineInfo;
 import com.example.epubreader.view.book.BookPage;
@@ -139,9 +141,9 @@ public class EpubReaderHtml {
                         }
                         break;
                     case XmlPullParser.TEXT:
-                        if (!parser.isWhitespace() && readBodyProgress == doing) {
+                        if (readBodyProgress == doing && !parser.isWhitespace() ) {
                             String contentText = parser.getText().trim();
-                            if (contentElement != null && !TextUtils.isEmpty(contentText)) {
+                            if (contentElement != null && !TextUtils.isEmpty(contentText) && !contentText.equals(" ")) {
                                 contentElement.addTextElement(contentText);
                             }
 //                            MyReadLog.i("contentText = " + contentText);
@@ -185,7 +187,7 @@ public class EpubReaderHtml {
         this.needShow = needShow;
         this.htmlIndex = htmlIndex;
         if (htmlIndex < 0 || htmlIndex > bookModel.getSpinSize() - 1) return;
-        long startTime = System.currentTimeMillis();
+//        long startTime = System.currentTimeMillis();
         InputStream inputStream = bookModel.getTextContent(htmlIndex);
         if (inputStream == null) return;
         parseHtml(inputStream);
@@ -195,7 +197,7 @@ public class EpubReaderHtml {
         idPositions.putAll(mainContentElement.getIdPosition());
         buildBookPages();
 
-        long parseHtmlTime = System.currentTimeMillis();
+//        long parseHtmlTime = System.currentTimeMillis();
 //        MyReadLog.i("parseTocFile html cost  is  " + (parseHtmlTime - startTime) + ", cut to pages cost  " + (System.currentTimeMillis() - parseHtmlTime));
     }
 
@@ -212,6 +214,13 @@ public class EpubReaderHtml {
             BodyControlTag controlTag = (BodyControlTag) mainContentElement.getControlTag();
             int pageWidth = ReaderApplication.getInstance().getWindowSize().widthPixels;
             int pageHeight = ReaderApplication.getInstance().getWindowSize().heightPixels;
+            if (pageWidth > pageHeight) {
+                pageWidth += BookContentDrawHelper.getNavigationBarHeight();
+            } else {
+                pageHeight += BookContentDrawHelper.getNavigationBarHeight();
+             }
+//            int pageHeight = BookContentDrawHelper.getPageHeight();
+//            MyReadLog.i("pageWidth = " + pageWidth + ", pageHeight = " + pageHeight);
             BookPage page = new BookPage(controlTag, pageWidth);
             page.setGap();
             int lineInfoStartX = page.lGap;
@@ -219,6 +228,7 @@ public class EpubReaderHtml {
             elementIndex = 0;
             BookPage childPage = null;
 //            MyReadLog.i("pageWidth = " + pageWidth + ", lGap = " + lineInfoStartX + ", tGap = " + lineInfoStartY);
+//            MyReadLog.i("textElements.size() = " + textElements.size());
             while (elementIndex < textElements.size()) {
 //                long buildLineStartTime = System.currentTimeMillis();
                 if (childPage == null) {
@@ -307,7 +317,7 @@ public class EpubReaderHtml {
 //                    lineWidth = pageWidth;
 //                    MyReadLog.i("paragraphWidth :" + lineWidth );
                 } else {
-                    MyReadLog.i("设置了段落宽度");
+//                    MyReadLog.i("设置了段落宽度");
                     lineWidth = paragraphWidth;
                     lineInfo.setLineWidth(lineWidth);
                 }
@@ -409,6 +419,9 @@ public class EpubReaderHtml {
             for (int i = 0; i < currentHtmlTocments.size(); i++) {
                 String inHtmlId = currentHtmlTocments.keyAt(i);
                 TocElement childElement = bookModel.tocElement.getElementAt(currentHtmlTocments.valueAt(i), true);
+                if (childElement == null) {
+                    continue;
+                }
                 if (!TextUtils.isEmpty(inHtmlId.trim())) {
                     String inHtmlPosition = idPositions.get(inHtmlId);
 //                    MyReadLog.i(inHtmlPosition);

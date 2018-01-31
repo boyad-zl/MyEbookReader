@@ -7,8 +7,10 @@ import android.support.v4.util.ArrayMap;
 import android.text.TextUtils;
 import android.util.SparseArray;
 
+import com.example.epubreader.BookControlCenter;
 import com.example.epubreader.ReaderApplication;
 import com.example.epubreader.book.css.BookCSSAttributeSet;
+import com.example.epubreader.db.Book;
 import com.example.epubreader.util.EpubPullParserUtil;
 import com.example.epubreader.book.toc.TocElement;
 import com.example.epubreader.util.BookSettings;
@@ -53,13 +55,17 @@ public class BookModel {
     public BookCSSAttributeSet cssAttributeSet;
     private BookCoverPage coverPage;
     public TocElement tocElement;
+    private int tocElementRealSize;
+    public SparseArray<ArrayMap<String, Integer>> htmlIndexTocMapsSparseArray;
 
-    public BookModel(String epubPath) {
-        this.epubPath = epubPath;
+    public BookModel(Book book) {
+        this.book = book;
+        this.epubPath = book.getFilePath();
     }
 
     public synchronized void decodeEpubMeta(String path) {
         try {
+//            book = new Book(path);
             zipFile = new ZipFile(new File(path));
             ZipEntry rootEntry = zipFile.getEntry(META_INF_CONTAINER_XML);
             String contentOpfFileName = getContentOpfName(zipFile, rootEntry);
@@ -74,17 +80,17 @@ public class BookModel {
 //            long startCategoryTime = System.currentTimeMillis();
             categoryBook(zipFile, metaFile);
 //            MyReadLog.i("category file cost time is " + (System.currentTimeMillis() - startCategoryTime));
-//            MyReadLog.i("----开始解析逐个读取html文件");
+            MyReadLog.i("----开始解析逐个读取html文件");
 
-            ReaderApplication.getInstance().getDummyView().preparePage(getReadPosition());
-            ReaderApplication.getInstance().getMyWidget().reset();
-//            ReaderApplication.getInstance().getMyWidget().repaint();
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    ReaderApplication.getInstance().getDummyView().calculateTotalPages();
-                }
-            }).start();
+//            BookControlCenter.Instance().getCurrentView().preparePage(getReadPosition());
+//            BookControlCenter.Instance().getViewListener().reset();
+//            BookControlCenter.Instance().getViewListener().repaint();
+//            new Thread(new Runnable() {
+//                @Override
+//                public void run() {
+//                    BookControlCenter.Instance().getCurrentView().calculateTotalPages();
+//                }
+//            }).start();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -100,13 +106,14 @@ public class BookModel {
     private void categoryBook(ZipFile zipFile, ZipEntry metaFile) throws IOException {
         InputStream inputStream = zipFile.getInputStream(metaFile);
 //        long start = System.currentTimeMillis();
-        EpubPullParserUtil.parseMetaFile(inputStream, this);
+        EpubPullParserUtil.parseMetaFile(inputStream, this, book);
 
         if (!TextUtils.isEmpty(bookCover)) {
             createCoverPage();
 //            MyReadLog.i("createCoverPage");
             if (coverPage != null) {
-                ReaderApplication.getInstance().getDummyView().setCoverPage(coverPage);
+//                ReaderApplication.getInstance().getDummyView().setCoverPage(coverPage);
+                BookControlCenter.Instance().getCurrentView().setCoverPage(coverPage);
             }
         }
 //        MyReadLog.i("metadata file cost time is " + (System.currentTimeMillis() - start));
@@ -162,9 +169,11 @@ public class BookModel {
         long start = System.currentTimeMillis();
         try {
             tocElement = EpubPullParserUtil.parseTocFile(zipFile.getInputStream(zipFile.getEntry(ncxFileArrayMap.valueAt(0).inFilePath)), this);
+            tocElementRealSize = tocElement.getCount(true);
 //            MyReadLog.i("first Element " + (tocElement.tocElements.get(0).getName()));
         } catch (IOException e) {
             tocElement = null;
+            tocElementRealSize = 0;
             e.printStackTrace();
         }
         MyReadLog.i("load toc cost " + (System.currentTimeMillis() - start));
@@ -318,6 +327,7 @@ public class BookModel {
 //        String contentId = spinContent[htmlIndex];
         if (textFileArrayMap.containsKey(contentId)) {
             try {
+//                MyReadLog.i(textFileArrayMap.get(contentId).inFilePath);
                 return zipFile.getInputStream(zipFile.getEntry(textFileArrayMap.get(contentId).inFilePath));
             } catch (IOException e) {
                 e.printStackTrace();
@@ -375,7 +385,8 @@ public class BookModel {
 
     public BookReadPosition getReadPosition() {
         BookReadPosition bookReadPosition = new BookReadPosition(0, "0", 0);
-        String positionStr = BookSettings.getReadBookPosition();
+//        String positionStr = BookSettings.getReadBookPosition();
+        String positionStr = book.bookPositionStr;
         if (!TextUtils.isEmpty(positionStr)) {
             int linkIndex = positionStr.indexOf("-");
             if (linkIndex > -1) {
@@ -447,16 +458,19 @@ public class BookModel {
      * @return
      */
     public ArrayMap<String, Integer> getHtmlTocElement(int htmlIndex) {
-        ArrayMap<String, Integer> arrayMap = null;
-        for (int i = 0; i < tocElement.getCount(true); i++) {
-            TocElement childElement = tocElement.getElementAt(i, true);
-            if (htmlIndex == childElement.getHtmlSpinIndex()) {
-                if (arrayMap == null) {
-                    arrayMap = new ArrayMap<>();
-                }
-                arrayMap.put(TextUtils.isEmpty(childElement.getInHtmlId()) ? " " : childElement.getInHtmlId(), i);
-            }
-        }
-        return arrayMap;
+        return htmlIndexTocMapsSparseArray.get(htmlIndex);
+//        ArrayMap<String, Integer> arrayMap = null;
+//        if (tocElementRealSize > 0) {
+//            for (int i = 0; i < tocElementRealSize; i++) {
+//                TocElement childElement = tocElement.getElementAt(i, true);
+//                if (htmlIndex == childElement.getHtmlSpinIndex()) {
+//                    if (arrayMap == null) {
+//                        arrayMap = new ArrayMap<>();
+//                    }
+//                    arrayMap.put(TextUtils.isEmpty(childElement.getInHtmlId()) ? " " : childElement.getInHtmlId(), i);
+//                }
+//            }
+//        }
+//        return arrayMap;
     }
 }

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="menu_dark_gray_bg">#F00E0E0E</color>
+    <color name="default_gray">#DDDDDD</color>
+    <color name="default_red">#d40819</color>
+</resources>

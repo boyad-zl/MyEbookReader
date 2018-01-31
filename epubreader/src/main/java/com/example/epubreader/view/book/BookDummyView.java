@@ -8,15 +8,20 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.support.v4.util.ArrayMap;
+import android.support.v4.util.LruCache;
 import android.text.TextUtils;
 import android.util.SparseArray;
+import android.util.SparseIntArray;
 
+import com.example.epubreader.BookReadControlCenter;
 import com.example.epubreader.ReaderApplication;
 import com.example.epubreader.book.BookModel;
 import com.example.epubreader.book.EpubReaderHtml;
 import com.example.epubreader.book.PriorityHighThreadFactory;
 import com.example.epubreader.book.css.BookTagAttribute;
+import com.example.epubreader.book.toc.TocElement;
 import com.example.epubreader.util.BookAttributeUtil;
+import com.example.epubreader.util.BookContentDrawHelper;
 import com.example.epubreader.util.BookStingUtil;
 import com.example.epubreader.util.BookUIHelper;
 import com.example.epubreader.util.MyReadLog;
@@ -27,6 +32,7 @@ import com.example.epubreader.view.book.element.BookTextNbspElement;
 import com.example.epubreader.view.book.element.BookTextWordElement;
 
 import java.util.ArrayList;
+import java.util.IllegalFormatCodePointException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -45,19 +51,36 @@ public class BookDummyView extends BookDummyAbstractView {
     private int currentPageIndex;
     private int currentPageKey;
     private Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
     private Paint imagePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private Paint footPaint = new Paint();
+    private Paint chapterPaint = new Paint();
     private boolean isSelectedTextRegion = false; // 是否在选择中
-    private SparseArray<Integer> pageIndexs = new SparseArray<>();
+    private SparseIntArray pageIndexes ;
+    private BookReadControlCenter reader;
 
-
-    public final ExecutorService prepareService = Executors.newSingleThreadExecutor(new PriorityHighThreadFactory());
+    private final ExecutorService prepareService = Executors.newSingleThreadExecutor(new PriorityHighThreadFactory());
     private SparseArray<ArrayList<BookPage>> pageArray = new SparseArray<>();
     private SparseArray<ArrayMap<String, String>> idArrays = new SparseArray<>();
     private BookCoverPage coverPage;
 
-    public BookDummyView(ReaderApplication application) {
-        super(application);
-        this.myBookModel = application.getBookModel();
+    private LruCache<Integer, Bitmap> pageCache = new LruCache<>(50);
+
+    public BookDummyView(BookReadControlCenter controlCenter) {
+        super(controlCenter);
+        this.reader = controlCenter;
+
+        footPaint.setTextSize(BookUIHelper.dp2px(12f));
+        footPaint.setColor(Color.GRAY);
+
+        chapterPaint.setTextSize(BookUIHelper.dp2px(12f));
+        chapterPaint.setColor(Color.GRAY);
+        paint.setTypeface(BookContentDrawHelper.getDrawTypeface());
+    }
+
+    public void setBookModel(BookModel myBookModel) {
+        this.myBookModel = myBookModel;
+        pageIndexes = new SparseIntArray(myBookModel.getSpinSize());
     }
 
     /**
@@ -108,8 +131,8 @@ public class BookDummyView extends BookDummyAbstractView {
             }
 
             if (needRepaint) {
-                application.getMyWidget().reset();
-                application.getMyWidget().repaint();
+                controlCenter.getViewListener().reset();
+                controlCenter.getViewListener().repaint();
             }
         } else {
 //            MyReadLog.i("is web url ? " + BookStingUtil.isWebUrl(hrefChips[0]));
@@ -162,8 +185,8 @@ public class BookDummyView extends BookDummyAbstractView {
                 }
             }
         }
-        application.getMyWidget().reset();
-        application.getMyWidget().repaint();
+        controlCenter.getViewListener().reset();
+        controlCenter.getViewListener().repaint();
     }
 
     private int lineIndexInPage;
@@ -234,15 +257,11 @@ public class BookDummyView extends BookDummyAbstractView {
 //        MyReadLog.i("onScrollingFinished");
         boolean needAddPage = false;
         if (pageIndex == PAGE_POSITION_INDEX_NEXT) {
-            if (isCalculatePages) {
-                movePageSum++;
-            } else {
+            if (!isCalculatePages) {
                 currentPageNum++;
             }
         } else if (pageIndex == PAGE_POSITION_INDEX_PREVIOUS) {
-            if (isCalculatePages) {
-                movePageSum--;
-            } else {
+            if (!isCalculatePages) {
                 currentPageNum--;
             }
         }
@@ -262,7 +281,6 @@ public class BookDummyView extends BookDummyAbstractView {
             if (currentPageIndex == currentPages.size() - 1) {
                 ArrayList<BookPage> nextPages = pageArray.get(currentPageKey + 1);
                 if (currentPageKey >= myBookModel.getSpinSize() - 1) {
-                    MyReadLog.i("你翻不动了");
                     nextPage = null;
                 } else {
                     nextPage = nextPages.get(0);
@@ -287,7 +305,6 @@ public class BookDummyView extends BookDummyAbstractView {
             if (currentPageIndex == 0) {
                 ArrayList<BookPage> previousPages = pageArray.get(currentPageKey - 1);
                 if (currentPageKey - 1 < 0) {
-                    MyReadLog.i("你翻不动了");
                     previousPage = null;
                 } else {
                     previousPage = previousPages.get(previousPages.size() - 1);
@@ -336,11 +353,10 @@ public class BookDummyView extends BookDummyAbstractView {
                 }
             });
         }
-        String readPositionStr = currentPageKey + "-" + currentPage.getStartPosition();
-//        MyReadLog.i(readPositionStr);
-        myBookModel.saveReadPosition(readPositionStr);
+        reader.storeReadPosition();
     }
 
+    // TODO TEST 仅用于测试
     public void setPages(ArrayList<BookPage> pages) {
         this.pages = pages;
     }
@@ -394,13 +410,41 @@ public class BookDummyView extends BookDummyAbstractView {
      */
     private void drawChapterInfo(Canvas canvas, BookPage bookPage) {
         if (myBookModel.tocElement == null) return;
-        String chapterStr = TextUtils.isEmpty(myBookModel.book.title) ? " " : myBookModel.book.title;
+        String chapterStr = TextUtils.isEmpty(myBookModel.book.title) ? "" : myBookModel.book.title;
         String startPosition = bookPage.getStartPosition(); // 获取开始的位置信息
+        if (!isCalculatePages) {
+            if (myBookModel.tocElement != null) {
+                int bookPageIndex = currentPageNum;
+                if (bookPage == previousPage) {
+                    bookPageIndex = bookPageIndex - 1;
+                } else if (bookPage == nextPage) {
+                    bookPageIndex = bookPageIndex + 1;
+                }
+                int size = myBookModel.tocElement.getCount(true);
+                for (int i = 0; i < size; i++) {
+                    TocElement childElement = myBookModel.tocElement.getElementAt(i, true);
+                    if (childElement.getPageIndex() > bookPageIndex) {
+                        break;
+                    } else if (childElement.getPageIndex() == bookPageIndex) {
+                        if (childElement.parent == null) {
+                            chapterStr = childElement.getParent().getName();
+                        } else {
+                            chapterStr = myBookModel.book.title;
+                        }
+                        break;
+                    } else {
+                        chapterStr = childElement.getName();
+                    }
+                }
+            }
+        } else {
 
+        }
 //       chapterStr = startPosition;
-        canvas.drawText(chapterStr, bookPage.lGap, bookPage.tGap - 8, paint);
+        if (!TextUtils.isEmpty(chapterStr)) {
+            canvas.drawText(chapterStr, bookPage.lGap, bookPage.tGap - 8, chapterPaint);
+        }
     }
-
 
     @Override
     public void setCoverPage(BookCoverPage coverPage) {
@@ -412,33 +456,9 @@ public class BookDummyView extends BookDummyAbstractView {
      * 绘制底部信息
      */
     private void drawFootView(Canvas canvas, BookPage page, int pageIndex) {
-        paint.setTextSize(BookUIHelper.dp2px(12f));
-        paint.setColor(Color.GRAY);
         // 绘制 时间
         int timeY = page.getPageHeight() - page.bGap / 2 + (int) (paint.getTextSize() / 2);
-        canvas.drawText(BookStingUtil.getTimeStr(System.currentTimeMillis()), page.lGap, timeY, paint);
-
-        // 绘制电池电量
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(1f);
-        RectF rectF = new RectF();
-        rectF.top = timeY - 15;
-        rectF.bottom = timeY;
-        rectF.left = page.lGap + 7 * 12;
-        rectF.right = rectF.left + 29;
-        canvas.drawRect(rectF, paint);
-        canvas.drawRoundRect(rectF, 3f, 3f, paint);
-
-        paint.setStrokeWidth(3f);
-        canvas.drawLine(rectF.left - 1, rectF.top + 5, rectF.left - 1, rectF.bottom - 5, paint);
-
-        paint.setStyle(Paint.Style.FILL);
-        RectF bRect = new RectF();
-        bRect.top = rectF.top + 2;
-        bRect.bottom = rectF.bottom - 2;
-        bRect.left = rectF.left + 2;
-        bRect.right = bRect.left + 10;
-        canvas.drawRoundRect(bRect, 2f, 2f, paint);
+        canvas.drawText(BookStingUtil.getTimeStr(System.currentTimeMillis()), page.lGap, timeY, footPaint);
 
         // 绘制页码相关信息
         if (!isCalculatePages && totalPages > 1) {
@@ -450,9 +470,31 @@ public class BookDummyView extends BookDummyAbstractView {
             } else {
                 pageNumInfo = currentPageNum + "/" + totalPages;
             }
-            paint.setTextSize(BookUIHelper.dp2px(12f));
-            canvas.drawText(pageNumInfo, page.getPageWidth() / 2, timeY, paint);
+            canvas.drawText(pageNumInfo, page.getPageWidth() / 2, timeY, footPaint);
         }
+
+        // 绘制电池电量
+        footPaint.setStyle(Paint.Style.STROKE);
+        footPaint.setStrokeWidth(1f);
+        RectF rectF = new RectF();
+        rectF.top = timeY - 15;
+        rectF.bottom = timeY;
+        rectF.left = page.lGap + 7 * 12;
+        rectF.right = rectF.left + 29;
+        canvas.drawRect(rectF, footPaint);
+        canvas.drawRoundRect(rectF, 3f, 3f, footPaint);
+
+        footPaint.setStrokeWidth(3f);
+        canvas.drawLine(rectF.left - 1, rectF.top + 5, rectF.left - 1, rectF.bottom - 5, footPaint);
+
+        footPaint.setStyle(Paint.Style.FILL);
+        RectF bRect = new RectF();
+        bRect.top = rectF.top + 2;
+        bRect.bottom = rectF.bottom - 2;
+        bRect.left = rectF.left + 2;
+        bRect.right = bRect.left + 10;
+        canvas.drawRoundRect(bRect, 2f, 2f, footPaint);
+
     }
 
     /**
@@ -462,8 +504,13 @@ public class BookDummyView extends BookDummyAbstractView {
      */
     private void drawPage(BookPage bookPage, Canvas canvas) {
 //        MyReadLog.i("drawPage");
-        if (isDayModel) {
-            canvas.drawColor(Color.WHITE);
+        if (BookContentDrawHelper.isDayModel()) {
+            BookContentDrawHelper.FontBgTheme fontTheme = BookContentDrawHelper.getFontBgTheme();
+            if (fontTheme.isDrawableBg()) {
+                canvas.drawBitmap(fontTheme.BgBitmap, null, new Rect(0, 0, bookPage.getPageWidth(), bookPage.getPageHeight()), paint);
+            } else {
+                canvas.drawColor(fontTheme.BgColor);
+            }
         } else {
             canvas.drawColor(Color.BLACK);
         }
@@ -516,8 +563,8 @@ public class BookDummyView extends BookDummyAbstractView {
             if (bitmap != null) {
 //                MyReadLog.i("imagePath = " + imagePath + "， bitmap size height = " + bitmap.getHeight() + ", width = " + bitmap.getWidth() + "elementWidth =  " + bookTextBaseElement.width + ", elementHeight = " + bookTextBaseElement.height);
                 canvas.drawBitmap(bitmap, bookTextBaseElement.x, bookTextBaseElement.y, imagePaint);
-                canvas.drawLine(bookTextBaseElement.x, bookTextBaseElement.y, bookTextBaseElement.x + bookTextBaseElement.width, bookTextBaseElement.y, paint);
-                canvas.drawLine(bookTextBaseElement.x, bookTextBaseElement.y + bookTextBaseElement.height, bookTextBaseElement.x + bookTextBaseElement.width, bookTextBaseElement.y + bookTextBaseElement.height, paint);
+//                canvas.drawLine(bookTextBaseElement.x, bookTextBaseElement.y, bookTextBaseElement.x + bookTextBaseElement.width, bookTextBaseElement.y, paint);
+//                canvas.drawLine(bookTextBaseElement.x, bookTextBaseElement.y + bookTextBaseElement.height, bookTextBaseElement.x + bookTextBaseElement.width, bookTextBaseElement.y + bookTextBaseElement.height, paint);
             }
         }
     }
@@ -530,6 +577,9 @@ public class BookDummyView extends BookDummyAbstractView {
     @Override
     public synchronized void preparePage(BookReadPosition readPosition) {
         MyReadLog.i("---------------preparePage----------------------");
+        if (readPosition == null) {
+            readPosition = myBookModel.getReadPosition();
+        }
         pageArray.clear();
         idArrays.clear();
 //        if (pageArray.size() == 0) {
@@ -537,16 +587,16 @@ public class BookDummyView extends BookDummyAbstractView {
         int loadSum = (myBookModel.getSpinSize() - 1) - readPosition.getPagePosition() > 2
                 ? readPosition.getPagePosition() + 3 - startIndex
                 : (myBookModel.getSpinSize()) - startIndex;
-        MyReadLog.d("startIndex = %d, loadSum = %d", startIndex, loadSum);
-        long startTime = System.currentTimeMillis();
+//        MyReadLog.d("startIndex = %d, loadSum = %d", startIndex, loadSum);
+//        long startTime = System.currentTimeMillis();
         for (int i = startIndex; i < startIndex + loadSum; i++) {
             EpubReaderHtml html = new EpubReaderHtml(myBookModel);
             html.loadHtmlInputStream(i, true);
             pageArray.put(i, html.getPages());
             idArrays.put(i, html.getIdPositions());
         }
-        MyReadLog.i("prepare cost " + (System.currentTimeMillis() - startTime));
-        MyReadLog.i("pageArray size is  " + pageArray.size());
+//        MyReadLog.i("prepare cost " + (System.currentTimeMillis() - startTime));
+//        MyReadLog.i("pageArray size is  " + pageArray.size());
 
         currentPageKey = readPosition.getPagePosition();
         MyReadLog.i("currentPageKey = " + currentPageKey + ", pageArray size is " + pageArray.size());
@@ -560,8 +610,8 @@ public class BookDummyView extends BookDummyAbstractView {
             }
         }
         MyReadLog.i("currentPageKey = " + currentPageKey + " , currentPageIndex = " + currentPageIndex);
-        if (!isCalculatePages) {
-            currentPageNum = pageIndexs.get(currentPageKey) + currentPageIndex;
+        if (!isCalculatePages && pageIndexes != null && pageIndexes.size() > currentPageKey) {
+            currentPageNum = pageIndexes.get(currentPageKey) + currentPageIndex;
         }
         setPageCurrentAndPreviousIndex();
 //        }
@@ -606,12 +656,18 @@ public class BookDummyView extends BookDummyAbstractView {
     private void setPaint(ArrayMap<String, BookTagAttribute> attributeSet, boolean isHasLink) {
         paint.setTextSize(BookAttributeUtil.getFontSize(attributeSet));
         boolean needItalic = BookAttributeUtil.getItalic(attributeSet);
-        Typeface italicTypeface = Typeface.create(Typeface.SANS_SERIF, needItalic ? Typeface.ITALIC : Typeface.NORMAL);
-        paint.setTypeface(italicTypeface);
+        paint.setTextSkewX(needItalic ? -0.2f : 0);
+//        Typeface italicTypeface = Typeface.create(Typeface.SANS_SERIF, needItalic ? Typeface.ITALIC : Typeface.NORMAL);
+//        if (italicTypeface == null) {
+//            italicTypeface = Typeface.createFromAsset(ReaderApplication.getInstance().getAssets(), "goodNight.ttf");
+//            italicTypeface = Typeface.createFromAsset(ReaderApplication.getInstance().getAssets(), "FZYouH.ttf");
+//        }
+//        paint.setTypeface(italicTypeface);
         paint.setFakeBoldText(BookAttributeUtil.getBold(attributeSet));
         paint.setUnderlineText(isHasLink);
-        if (isDayModel) {
-            paint.setColor(isHasLink ? Color.BLUE : Color.BLACK);
+        if (BookContentDrawHelper.isDayModel()) {
+            BookContentDrawHelper.FontBgTheme theme = BookContentDrawHelper.getFontBgTheme();
+            paint.setColor(isHasLink ? Color.BLUE : theme.FontColor);
         } else {
             paint.setColor(isHasLink ? Color.YELLOW : Color.WHITE);
         }
@@ -643,7 +699,7 @@ public class BookDummyView extends BookDummyAbstractView {
         startElementY = endElementY = selectedLine.y;
         currentLineInfoHeight = selectedLine.getLineHeight();
         rects.add(new Rect(startElement.x, selectedLine.y, startElement.x + startElement.width, selectedLine.y + selectedLine.getLineHeight()));
-        application.getMyWidget().drawSelectedRegion(rects);
+        controlCenter.getViewListener().drawSelectedRegion(rects);
         return true;
     }
 
@@ -656,7 +712,8 @@ public class BookDummyView extends BookDummyAbstractView {
     @Override
     public void onFingerRelease(int x, int y) {
 //        MyReadLog.i("onFingerRelease");
-        application.getMyWidget().startAnimatedScrolling(x, y);
+        controlCenter.getViewListener().startAnimatedScrolling(x, y);
+//        application.getMyWidget().startAnimatedScrolling(x, y);
     }
 
     @Override
@@ -673,7 +730,7 @@ public class BookDummyView extends BookDummyAbstractView {
                 if (selectedElement instanceof BookTextImageElement) {
                     //  TODO test 展示大图
                     MyReadLog.i("selectedElement = BookTextImageElement");
-                    return;
+//                    return;
                 }
             }
         }
@@ -681,12 +738,22 @@ public class BookDummyView extends BookDummyAbstractView {
         if (isSelectedTextRegion) {
             isSelectedTextRegion = false;
             isLastActionMoveEndCursor = true;
-            application.getMyWidget().repaint();
+//            application.getMyWidget().repaint();
+            controlCenter.getViewListener().repaint();
             return;
         }
         // 暂时添加 事件
-        boolean forward = x > application.getWindowSize().widthPixels / 2;
-        application.getMyWidget().startAnimatedScrolling(forward ? PAGE_POSITION_INDEX_NEXT : PAGE_POSITION_INDEX_PREVIOUS, x, y, Direction.rightToLeft);
+        int mWidth = ReaderApplication.getInstance().getWindowSize().widthPixels;
+        int mHeight = ReaderApplication.getInstance().getWindowSize().heightPixels;
+        boolean needTurn = (x > mWidth / 3) && (x < mWidth * 2 / 3) && (y > mHeight / 3) && (y < mHeight * 2 / 3);
+        if (needTurn) {
+            MyReadLog.i("showMenu");
+            controlCenter.showWindowMenu();
+        } else {
+            boolean forward = x > mWidth / 2;
+//            application.getMyWidget().startAnimatedScrolling(forward ? PAGE_POSITION_INDEX_NEXT : PAGE_POSITION_INDEX_PREVIOUS, x, y, Direction.rightToLeft);
+            controlCenter.getViewListener().startAnimatedScrolling(forward ? PAGE_POSITION_INDEX_NEXT : PAGE_POSITION_INDEX_PREVIOUS, x, y, Direction.rightToLeft);
+        }
     }
 
 
@@ -790,27 +857,30 @@ public class BookDummyView extends BookDummyAbstractView {
             Rect rect = new Rect(lineInfo.getRealStartX(), lineInfo.y, lineInfo.getRealEndX(), lineInfo.y + lineHeight);
             if (i == startLineIndex) {
                 rect.left = startElement.x;
-                MyReadLog.i("startX = " + rect.left + ", endX = " + lineInfo.getRealEndX());
+//                MyReadLog.i("startX = " + rect.left + ", endX = " + lineInfo.getRealEndX());
             }
             if (i == endLineIndex) {
                 rect.right = endElement.x + endElement.width;
             }
             rects.add(rect);
         }
-        application.getMyWidget().drawSelectedRegion(rects);
+//        application.getMyWidget().drawSelectedRegion(rects);
+        controlCenter.getViewListener().drawSelectedRegion(rects);
     }
 
     @Override
     public void onFingerPress(int x, int y) {
         MyReadLog.i("onFingerPress");
 //        Direction direction = Direction.rightToLeft;
-        application.getMyWidget().startManualScrolling(x, y, Direction.rightToLeft);
+//        application.getMyWidget().startManualScrolling(x, y, Direction.rightToLeft);
+        controlCenter.getViewListener().startManualScrolling(x, y, Direction.rightToLeft);
     }
 
     @Override
     public void onFingerMove(int x, int y) {  // 移动
 //        MyReadLog.i("onFingerMove");
-        application.getMyWidget().scrollManuallyTo(x, y);
+//        application.getMyWidget().scrollManuallyTo(x, y);
+        controlCenter.getViewListener().scrollManuallyTo(x, y);
     }
 
     /**
@@ -819,27 +889,50 @@ public class BookDummyView extends BookDummyAbstractView {
     private volatile int totalPages;
     private volatile int currentPageNum; //当前页面的页码
     private volatile boolean isCalculatePages = true;
-    private volatile int movePageSum = 0;
 
     public void calculateTotalPages() {
         isCalculatePages = true;
         long start = System.currentTimeMillis();
         totalPages = 0;
-        pageIndexs.clear();
+        MyReadLog.i("calculateTotalPages!!!!!!");
+        pageIndexes.clear();
         for (int i = 0; i < myBookModel.getSpinSize(); i++) {
             EpubReaderHtml html = new EpubReaderHtml(myBookModel);
             html.loadHtmlInputStream(i, false);
             html.getIndexInTocElement(totalPages);
-            pageIndexs.put(i, totalPages + 1);
+            pageIndexes.put(i, totalPages + 1);
             totalPages = totalPages + html.getPages().size();
         }
         isCalculatePages = false;
-        currentPageNum = pageIndexs.get(currentPageKey) + currentPageIndex;
+        currentPageNum = pageIndexes.get(currentPageKey) + currentPageIndex;
         MyReadLog.i("calculateTotalPages cost " + (System.currentTimeMillis() - start) + "，totalPages =  " + totalPages);
-        application.getMyWidget().reset();
-        application.getMyWidget().repaint();
+        controlCenter.getViewListener().reset();
+        controlCenter.getViewListener().repaint();
     }
 
+    public String getCurrentPageStartElementPositionStr() {
+        return currentPageKey + "-" + currentPage.getStartPosition();
+    }
+
+    public float getProgress() {
+        if (isCalculatePages) {
+            return -1;
+        } else {
+            return ((float) currentPageNum) / totalPages;
+        }
+    }
+
+    public void gotoPosition(BookReadPosition position) {
+        preparePage(position);
+    }
+
+    public BookPage getCurrentPage() {
+        return currentPage;
+    }
+
+    public int getCurrentHtmlIndex () {
+        return currentPageKey;
+    }
 //    @Override
 //    public void reset() {
 //        pageArray.clear();

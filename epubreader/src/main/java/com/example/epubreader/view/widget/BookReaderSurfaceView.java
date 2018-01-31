@@ -19,6 +19,7 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewConfiguration;
 
+import com.example.epubreader.BookControlCenter;
 import com.example.epubreader.R;
 import com.example.epubreader.ReaderApplication;
 import com.example.epubreader.util.BookUIHelper;
@@ -143,7 +144,8 @@ public class BookReaderSurfaceView extends SurfaceView implements View.OnLongCli
     private class ShortClickRunnable implements Runnable {
         @Override
         public void run() {
-            final BookDummyAbstractView view = ReaderApplication.getInstance().getDummyView();
+//            final BookDummyAbstractView view = ReaderApplication.getInstance().getDummyView();
+            final BookDummyAbstractView view = BookControlCenter.Instance().getCurrentView();
             view.onFingerSingleTap(myPressedX, myPressedY);
             myPendingPress = false;
             myPendingShortClickRunnable = null;
@@ -160,7 +162,8 @@ public class BookReaderSurfaceView extends SurfaceView implements View.OnLongCli
     public boolean onTouchEvent(MotionEvent event) {
         int x = (int) event.getX();
         int y = (int) event.getY();
-        BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+//        BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
         switch (event.getAction()) {
             case MotionEvent.ACTION_CANCEL:
                 MyReadLog.i("MotionEvent.ACTION_CANCEL");
@@ -242,7 +245,8 @@ public class BookReaderSurfaceView extends SurfaceView implements View.OnLongCli
 
     @Override
     public boolean onLongClick(View v) {
-        BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+//        BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
         return dummyView.onFingerLongPress(myPressedX, myPressedY);
     }
 
@@ -256,7 +260,8 @@ public class BookReaderSurfaceView extends SurfaceView implements View.OnLongCli
 
     @Override
     public void scrollManuallyTo(int x, int y) {
-        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+//        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        final BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
         final AnimationProvider animator = getAnimationProvider();
         int pageIndex = animator.getPageToScrollTo(x, y);
         MyReadLog.i("scrollManuallyTo");
@@ -272,7 +277,8 @@ public class BookReaderSurfaceView extends SurfaceView implements View.OnLongCli
 
     @Override
     public void startAnimatedScrolling(int x, int y) {
-        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+//        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        final BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
         final AnimationProvider animation = getAnimationProvider();
         if (!dummyView.canScroll(animation.getPageToScrollTo(x, y) == PAGE_POSITION_INDEX_NEXT)) {
             animation.terminate();
@@ -290,7 +296,8 @@ public class BookReaderSurfaceView extends SurfaceView implements View.OnLongCli
 
     @Override
     public void startAnimatedScrolling(int pageIndex, int x, int y, BookViewEnums.Direction direction) {
-        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+//        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        final BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
         if (pageIndex == PAGE_POSITION_INDEX_CURRENT || !dummyView.canScroll(pageIndex == PAGE_POSITION_INDEX_NEXT)) {
             return;
         }
@@ -310,7 +317,8 @@ public class BookReaderSurfaceView extends SurfaceView implements View.OnLongCli
 
     @Override
     public void startAnimatedScrolling(int pageIndex, BookViewEnums.Direction direction) {
-        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+//        final BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        final BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
         if (pageIndex == PAGE_POSITION_INDEX_CURRENT || !dummyView.canScroll(pageIndex == PAGE_POSITION_INDEX_NEXT)) {
             return;
         }
@@ -338,7 +346,8 @@ public class BookReaderSurfaceView extends SurfaceView implements View.OnLongCli
     }
 
     public void drawOnBitmap(Bitmap bitmap, int pageIndex) {
-        BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+//        BookDummyAbstractView dummyView = ReaderApplication.getInstance().getDummyView();
+        BookDummyAbstractView dummyView = BookControlCenter.Instance().getCurrentView();
 //        if (dummyView == null) MyReadLog.i("dummyView is null!!!!!");
         dummyView.paint(bitmap, pageIndex);
     }
@@ -385,7 +394,6 @@ public class BookReaderSurfaceView extends SurfaceView implements View.OnLongCli
         drawHandler.sendMessage(message);
     }
 
-    @Override
     public void setPageBitmapManager(PageBitmapManagerImpl pageBitmapManager) {
         this.pageBitmapManager = pageBitmapManager;
     }
@@ -443,7 +451,8 @@ public class BookReaderSurfaceView extends SurfaceView implements View.OnLongCli
             Canvas canvas = null;
 //                    MyReadLog.i("MESSAGE_DRAW_ANIMATION_PAGES");
             long currentStartTime = System.currentTimeMillis();
-            final BookDummyAbstractView view = ReaderApplication.getInstance().getDummyView();
+//            final BookDummyAbstractView view = ReaderApplication.getInstance().getDummyView();
+            final BookDummyAbstractView view = BookControlCenter.Instance().getCurrentView();
             final AnimationProvider animator = getAnimationProvider();
             final AnimationProvider.Mode oldMode = animator.getMode();
             animator.doStep();

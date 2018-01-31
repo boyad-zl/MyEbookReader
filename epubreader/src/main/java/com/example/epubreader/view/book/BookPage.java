@@ -10,6 +10,7 @@ import com.example.epubreader.book.tag.BodyControlTag;
 import com.example.epubreader.util.BookAttributeUtil;
 import com.example.epubreader.util.BookUIHelper;
 import com.example.epubreader.util.MyReadLog;
+import com.example.epubreader.view.book.element.BookTextBaseElement;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -102,10 +103,10 @@ public class BookPage {
         lineInfos.add(lineInfo);
     }
 
-    public void finishAdd(){
-        if (!lineInfos.isEmpty()){
-            BookLineInfo lastLineInfo = lineInfos.get(lineInfos.size() -1);
-            if (lastLineInfo != null && !lastLineInfo.elements.isEmpty()){
+    public void finishAdd() {
+        if (!lineInfos.isEmpty()) {
+            BookLineInfo lastLineInfo = lineInfos.get(lineInfos.size() - 1);
+            if (lastLineInfo != null && !lastLineInfo.elements.isEmpty()) {
                 setEndPosition(lastLineInfo.elements.get(lastLineInfo.elements.size() - 1).getPosition());
             }
         }
@@ -118,52 +119,6 @@ public class BookPage {
      */
     public int getLineSize() {
         return lineInfos.size();
-    }
-
-    /**
-     * 将页面切成几个指定页面高度的页面
-     *
-     * @param height 页面的指定高度
-     * @return
-     */
-    public ArrayList<BookPage> cutToPages(int height) {
-        ArrayList<BookPage> pages = new ArrayList<>();
-        BookPage page = null;
-        int linesY = tGap;
-        int lineIndex = 0;
-//        MyReadLog.i("lineInfos size is " + lineInfos.size());
-        while (lineIndex < lineInfos.size()) {
-//            MyReadLog.i("lineIndex = " + lineIndex);
-            BookLineInfo lineInfo = lineInfos.get(lineIndex);
-            if (page == null) {
-                page = new BookPage(bodyControlTag, pageWidth, height);
-                page.setStartPosition(lineInfo.elements.get(0).getPosition());
-            }
-
-            if (linesY + lineInfo.lineHeight > height - bGap) {
-//                MyReadLog.d("height = %d, bGap = %d, linesY = %d, lineInfo.height = %d" ,height,bGap , linesY , lineInfo.lineHeight);
-                page.resetPosition();
-                if (page.lineInfos.size() > 0) {
-                    BookLineInfo lastLineInfo = page.lineInfos.get(page.lineInfos.size() - 1);
-                    page.setEndPosition(lastLineInfo.elements.get(lastLineInfo.elements.size() - 1).getPosition());
-                }
-                pages.add(page);
-                page = null;
-                linesY = tGap;
-            } else {
-                page.addLineInfo(lineInfos.get(lineIndex));
-                lineIndex++;
-                linesY = linesY + lineInfo.lineHeight;
-            }
-        }
-        if (page != null) {
-            page.resetPosition();
-            BookLineInfo lastLineInfo = page.lineInfos.get(page.lineInfos.size() - 1);
-            page.setEndPosition(lastLineInfo.elements.get(lastLineInfo.elements.size() - 1).getPosition());
-            pages.add(page);
-        }
-//        MyReadLog.i("pages size is " + pages.size());
-        return pages;
     }
 
     /**
@@ -232,10 +187,11 @@ public class BookPage {
         if (TextUtils.isEmpty(contentElementPosition) || contentElementPosition.equals("0")) {
             return true;
         } else {
+//            MyReadLog.d("startPosition = %s, endPosition = %s", startPosition, endPosition);
             int startElementIndex = Integer.valueOf(startPosition.substring(startPosition.indexOf("/") + 1));
             int endElementIndex = Integer.valueOf(endPosition.substring(endPosition.indexOf("/") + 1));
 
-            if (contentElementPosition.equals(startPosition.substring(0, startPosition.indexOf("/")))){
+            if (contentElementPosition.equals(startPosition.substring(0, startPosition.indexOf("/")))) {
                 return startElementIndex <= contentElmentIndex;
             }
             if (contentElementPosition.equals(endPosition.substring(0, endPosition.indexOf("/")))) {
@@ -284,4 +240,37 @@ public class BookPage {
         }
     }
 
+    /**
+     * 获取书签信息
+     * 即page的前60个文字
+     *
+     * @return
+     */
+    public String getMarkStr() {
+        int lineIndex = 0;
+        StringBuilder stringBuilder = new StringBuilder();
+        boolean getMarkSummaryStrSuccess = false;
+        BookTextBaseElement lastLineFirstElement = null;
+        while (lineIndex < lineInfos.size()) {
+            BookLineInfo lineInfo = lineInfos.get(lineIndex);
+            if (lastLineFirstElement != null && !lastLineFirstElement.isInOneParagraph(lineInfo.elements.get(0))) {
+                stringBuilder.append("\n");
+            }
+            lastLineFirstElement = lineInfo.elements.get(0);
+            for (int i = 0; i < lineInfo.elements.size(); i++) {
+                BookTextBaseElement element = lineInfo.elements.get(i);
+                stringBuilder.append(element.getContentStr());
+                if (stringBuilder.length() > 59) {
+                    getMarkSummaryStrSuccess = true;
+                    break;
+                }
+            }
+            if (getMarkSummaryStrSuccess) {
+                break;
+            }
+            lineIndex++;
+        }
+        stringBuilder.append("...");
+        return stringBuilder.toString();
+    }
 }

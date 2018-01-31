@@ -4,6 +4,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 
+import com.example.epubreader.BookControlCenter;
 import com.example.epubreader.ReaderApplication;
 import com.example.epubreader.util.MyReadLog;
 
@@ -59,7 +60,7 @@ public class PageBitmapManagerImpl implements PageBitmapManager {
         }
         MyReadLog.i("myWidget.drawOnBitmap");
 //        myWidget.drawOnBitmap(myBitmaps[iIndex], pageIndex);
-        ReaderApplication.getInstance().getMyWidget().drawOnBitmap(myBitmaps[iIndex], pageIndex);
+        BookControlCenter.Instance().getViewListener().drawOnBitmap(myBitmaps[iIndex], pageIndex);
         return myBitmaps[iIndex];
     }
 

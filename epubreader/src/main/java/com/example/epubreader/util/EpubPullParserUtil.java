@@ -1,26 +1,36 @@
 package com.example.epubreader.util;
 
+import android.support.v4.util.ArrayMap;
 import android.text.TextUtils;
+import android.util.SparseArray;
 
-import com.example.epubreader.book.Book;
+import com.example.epubreader.ReaderApplication;
+import com.example.epubreader.db.Book;
 import com.example.epubreader.book.BookHtmlResourceFile;
 import com.example.epubreader.book.BookModel;
 import com.example.epubreader.book.BookResourceFile;
 import com.example.epubreader.book.toc.TocElement;
-import com.example.epubreader.util.BookStingUtil;
-import com.example.epubreader.util.MyReadLog;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.IllegalFormatCodePointException;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 /**
  * Created by Boyad on 2017/11/29.
@@ -67,6 +77,8 @@ public class EpubPullParserUtil {
     private static final String APPLICATION_RESOURCE_FILE_TYPE_IMAGE_JPEG = "image/jpeg";
     private static final String APPLICATION_RESOURCE_FILE_TYPE_NCX = "application/x-dtbncx+xml";
     private static final String APPLICATION_RESOURCE_FILE_TYPE_CSS = "text/css";
+    private static final String APPLICATION_RESOURCE_FILE_TYPE_OEBPS = "application/oebps-package+xml";
+    public static final String META_INF_CONTAINER_XML = "META-INF/container.xml";
 
 
     public static TocElement parseTocFile(InputStream inputStream, BookModel model) throws IOException {
@@ -76,6 +88,11 @@ public class EpubPullParserUtil {
             TocElement tocElement = null;
             int event = parser.getEventType();
             int depth = 0;
+            if (model.htmlIndexTocMapsSparseArray == null) {
+                model.htmlIndexTocMapsSparseArray = new SparseArray<>();
+            }
+            model.htmlIndexTocMapsSparseArray.clear();
+            int tocIndex = -1;
             while (event != XmlPullParser.END_DOCUMENT) {
                 String tagName = parser.getName();
                 switch (event) {
@@ -87,6 +104,7 @@ public class EpubPullParserUtil {
                             }
                         } else if (tagName.equals(NAVPOINT_STRING)) {
                             depth++;
+                            tocIndex++;
                             TocElement childTocElement = new TocElement(tocElement);
                             tocElement = childTocElement;
                             tocElement.setDepth(depth);
@@ -98,10 +116,21 @@ public class EpubPullParserUtil {
 //                            MyReadLog.i("path = " + path);
                                 tocElement.setPath(path);
                                 String[] pathInfos = path.split("#");
-                                tocElement.setHtmlSpinIndex(model.getSpinePageIndex(pathInfos[0].trim()));
-                                if (pathInfos.length > 1) {
-                                    tocElement.setInHtmlId(pathInfos[1].trim());
+                                int htmlSpinIndex = model.getSpinePageIndex(pathInfos[0].trim());
+                                tocElement.setHtmlSpinIndex(htmlSpinIndex);
+
+                                ArrayMap<String, Integer> array = model.htmlIndexTocMapsSparseArray.get(htmlSpinIndex);
+                                if (array == null) {
+                                    array = new ArrayMap<>();
                                 }
+                                if (pathInfos.length > 1) {
+                                    array.put(TextUtils.isEmpty(pathInfos[1].trim()) ? " " : pathInfos[1].trim(), tocIndex);
+                                    tocElement.setInHtmlId(pathInfos[1].trim());
+//                                    MyReadLog.i("htmlSpinIndex = " + htmlSpinIndex+ ", tocIndex =" + tocIndex + ", pathInfo = " + pathInfos[1]);
+                                } else {
+                                    array.put(" ", tocIndex);
+                                }
+                                model.htmlIndexTocMapsSparseArray.put(htmlSpinIndex, array);
                             }
                         } else if (tagName.equals(TEXT_STRING)) {
                             String title = parser.nextText();
@@ -130,16 +159,13 @@ public class EpubPullParserUtil {
                 }
                 event = parser.next();
             }
-
-//            int size = tocElement.getElementSize();
-//            MyReadLog.i("size  = " + size);
             return tocElement;
         } catch (XmlPullParserException e) {
             return null;
         }
     }
 
-    public static void parseMetaFile(InputStream inputStream, BookModel model) throws IOException {
+    public static void parseMetaFile(InputStream inputStream, BookModel model, Book book) throws IOException {
         try {
             XmlPullParser parser = XmlPullParserFactory.newInstance().newPullParser();
             parser.setInput(new InputStreamReader(inputStream));
@@ -148,14 +174,14 @@ public class EpubPullParserUtil {
             boolean isReadManifest = false;
             boolean isReadSpine = false;
             boolean isReadGuide = false;
-            Book book = null;
+//            Book book = null;
             while (eventType != XmlPullParser.END_DOCUMENT) {
                 String tagName = parser.getName();
                 switch (eventType) {
                     case XmlPullParser.START_TAG:
-                        if (tagName.equals(TAGNAME_METADATA) && !isReadMetaData){
+                        if (tagName.equals(TAGNAME_METADATA) && !isReadMetaData) {
                             isReadMetaData = true;
-                            book = new Book();
+//                            book = new Book();
                         }
                         if (isReadMetaData) {
                             if (tagName.equals(TAGNAME_DC_TITLE)) {
@@ -164,17 +190,17 @@ public class EpubPullParserUtil {
 //                                model.bookWriter = parser.nextText();
                                 String roleValue = parser.getAttributeValue(null, ATTRIBUTE_OPF_ROLE);
                                 if (TextUtils.isEmpty(roleValue)) {
-                                    book.addAuthor(parser.nextText());
+//                                    book.addAuthor(parser.nextText());
                                 } else {
                                     if (roleValue.equals(ATTRIBUTE_VALUE_AUT) || roleValue.equals(ATTRIBUTE_VALUE_AUTHOR)) {
-                                        book.addAuthor(parser.nextText());
+//                                        book.addAuthor(parser.nextText());
 //                                    model.bookName = parser.nextText();
                                     } else if (roleValue.equals(ATTRIBUTE_VALUE_MAKER)) {
-                                        book.maker = parser.nextText();
+//                                        book.maker = parser.nextText();
                                     }
                                 }
                             } else if (tagName.equals(TAGNAME_DC_LANGUAGE)) {
-                                book.language = parser.nextText();
+//                                book.language = parser.nextText();
 //                                model.bookLanguage = parser.nextText();
                             } else if (tagName.equals(TAGNAME_META)) {
                                 String name = parser.getAttributeValue(null, ATTRIBUTE_NAME);
@@ -248,4 +274,150 @@ public class EpubPullParserUtil {
 
         }
     }
+
+    public static void parseOnlyMetaFile(final ZipFile zipFile, Book book) throws IOException {
+        try {
+            ZipEntry containerEntry = zipFile.getEntry(META_INF_CONTAINER_XML);
+            String internalDir = "";
+            String internalOpfPath = "";
+            XmlPullParser parser = XmlPullParserFactory.newInstance().newPullParser();
+            parser.setInput(new InputStreamReader(zipFile.getInputStream(containerEntry)));
+            int eventType = parser.getEventType();
+            while (eventType != XmlPullParser.END_DOCUMENT) {
+                String tagName = parser.getName();
+                switch (eventType) {
+                    case XmlPullParser.START_TAG:
+                        if (tagName.equals("rootfile")) {
+                            if (APPLICATION_RESOURCE_FILE_TYPE_OEBPS.equals(parser.getAttributeValue(null, ATTRIBUTE_MEDIA_TYPE))) {
+                                internalOpfPath = parser.getAttributeValue(null, "full-path");
+                            }
+                        }
+                        break;
+                }
+                eventType = parser.next();
+            }
+
+            if (!TextUtils.isEmpty(internalOpfPath) && internalOpfPath.length() > 11) {
+                internalDir = internalOpfPath.substring(0, internalOpfPath.length() - 12);
+                MyReadLog.i(internalDir);
+            }
+
+            MyReadLog.i("internalOpfPath -->" + internalOpfPath);
+            ZipEntry opfEntry = zipFile.getEntry(internalOpfPath);
+            parser.setInput(new InputStreamReader(zipFile.getInputStream(opfEntry)));
+//                int eventType = parser.getEventType();
+            boolean isReadMetaData = false;
+            boolean isReadManifest = false;
+            boolean needBreak = false;
+            String coverId = "";
+            String internalCoverPath = "";
+            eventType = parser.getEventType();
+            while (eventType != XmlPullParser.END_DOCUMENT) {
+                if (needBreak) break;
+                String tagName = parser.getName();
+                switch (eventType) {
+                    case XmlPullParser.START_TAG:
+                        if (tagName.equals(TAGNAME_METADATA) && !isReadMetaData) {
+                            isReadMetaData = true;
+                        }
+                        if (isReadMetaData) {
+                            if (tagName.equals(TAGNAME_DC_TITLE)) {
+                                book.title = parser.nextText();
+                            } else if (tagName.equals(TAGNAME_DC_CREATOR)) {
+                                String roleValue = parser.getAttributeValue(null, ATTRIBUTE_OPF_ROLE);
+                                if (TextUtils.isEmpty(roleValue)) {
+//                                    book.addAuthor(parser.nextText());
+                                } else {
+                                    if (roleValue.equals(ATTRIBUTE_VALUE_AUT) || roleValue.equals(ATTRIBUTE_VALUE_AUTHOR)) {
+                                        book.addAuthor(parser.nextText());
+//                                    model.bookName = parser.nextText();
+                                    } else if (roleValue.equals(ATTRIBUTE_VALUE_MAKER)) {
+//                                        book.maker = parser.nextText();
+                                    }
+                                }
+                            } else if (tagName.equals(TAGNAME_DC_LANGUAGE)) {
+//                                book.language = parser.nextText();
+//                                model.bookLanguage = parser.nextText();
+                            } else if (tagName.equals(TAGNAME_META)) {
+                                String name = parser.getAttributeValue(null, ATTRIBUTE_NAME);
+                                if (name != null && name.equals("cover")) {
+                                    coverId = parser.getAttributeValue(null, ATTRIBUTE_CONTENT);
+                                }
+                            }
+                        }
+                        if (tagName.equals(TAGNAME_MANIFEST) && !isReadManifest)
+                            isReadManifest = true;
+                        if (isReadManifest) {
+                            if (tagName.equals(TAGNAME_ITEM)) {
+                                String href = parser.getAttributeValue(null, ATTRIBUTE_HREF);
+                                String id = parser.getAttributeValue(null, ATTRIBUTE_ID);
+                                String mediaType = parser.getAttributeValue(null, ATTRIBUTE_MEDIA_TYPE);
+                                if (id.equals(coverId)) {
+                                    if (mediaType.equals(APPLICATION_RESOURCE_FILE_TYPE_IMAGE_PNG)
+                                            || mediaType.equals(APPLICATION_RESOURCE_FILE_TYPE_IMAGE_JPEG)) {
+                                        internalCoverPath = href;
+//                                        MyReadLog.i("cover path in zip = " + href);
+                                    }
+                                    needBreak = true;
+                                }
+                            }
+                        }
+                        break;
+                    case XmlPullParser.END_TAG:
+                        if (isReadMetaData && tagName.equals(TAGNAME_METADATA)) {
+                            if (TextUtils.isEmpty(coverId)) {
+                                needBreak = true;
+                            }
+                            isReadMetaData = false;
+                        }
+                        break;
+                }
+                eventType = parser.next();
+            }
+
+            if (!TextUtils.isEmpty(internalCoverPath)) {
+                if (!TextUtils.isEmpty(internalDir)) {
+                    internalCoverPath = internalDir + "/" + internalCoverPath;
+                }
+                String fileType = internalCoverPath.substring(internalCoverPath.lastIndexOf(".") + 1);
+                final String coverRealPath = BookFileHelper.PATH_COVER + "/" + book.title + "." + fileType;
+                MyReadLog.i("coverRealPath = " + coverRealPath);
+                book.coverFile = coverRealPath;
+                File coverFile = new File(coverRealPath);
+                if (!coverFile.exists()) {
+                    final ZipEntry coverEntry = zipFile.getEntry(internalCoverPath);
+
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                File file = new File(BookFileHelper.PATH_COVER);
+                                if (!file.exists()) {
+                                    file.mkdirs();
+                                }
+//                                FileOutputStream outputStream = new FileOutputStream(coverRealPath);
+                                OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(coverRealPath));
+                                InputStream inputStream = new BufferedInputStream(zipFile.getInputStream(coverEntry));
+                                int readLen = 0;
+                                byte[] bytes = new byte[1024];
+                                while ((readLen = inputStream.read(bytes, 0, 1024)) != -1) {
+                                    outputStream.write(bytes, 0, readLen);
+                                }
+                                inputStream.close();
+                                outputStream.close();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            } finally {
+
+                            }
+                        }
+                    }).start();
+                }
+            }
+
+        } catch (XmlPullParserException e) {
+
+        }
+    }
+
 }
