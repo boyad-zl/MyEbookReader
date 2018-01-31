@@ -4,7 +4,7 @@
     android:id="@+id/activity_test"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.example.epubreader.view.TestActivity">
+    tools:context="com.boyad.epubreader.view.TestActivity">
 
     <ImageView
         android:id="@+id/test_img"

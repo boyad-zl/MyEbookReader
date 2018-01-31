@@ -24,7 +24,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.example.zjb.myebookreader"
+        applicationId "com.boyad.le.littlefurreader"
         versionCode ((int) (System.currentTimeMillis() / 1000))
         versionName "${verName}"
         multiDexEnabled true

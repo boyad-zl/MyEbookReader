@@ -9,12 +9,12 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />-->
 
-    <com.example.epubreader.view.widget.BookReaderView
+    <com.boyad.epubreader.view.widget.BookReaderView
     android:id="@+id/main_reader_view"
     android:layout_width="match_parent"
     android:layout_height="match_parent" />
 
-    <com.example.epubreader.view.widget.BookReaderGLSurfaceView
+    <com.boyad.epubreader.view.widget.BookReaderGLSurfaceView
         android:id="@+id/main_reader_gl_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"

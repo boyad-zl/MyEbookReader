@@ -25,7 +25,7 @@
                 app:heightRatio="169"
                 app:widthRatio="130">
 
-                <com.example.zjb.myebookreader.view.RoundImageView
+                <com.boyad.le.littlefurreader.view.RoundImageView
                     android:id="@+id/item_book_cover"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

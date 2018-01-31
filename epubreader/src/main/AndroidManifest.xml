@@ -1,24 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.epubreader">
+    package="com.boyad.epubreader">
 
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.CHANGE_CONFIGURATION"/>
 
     <application
-        android:name=".ReaderApplication"
+        android:name="com.boyad.epubreader.ReaderApplication"
         android:allowBackup="true"
         android:label="@string/app_name"
         android:supportsRtl="true">
-        <activity android:name=".view.ReaderActivity"
+        <activity android:name="com.boyad.epubreader.view.ReaderActivity"
             android:launchMode="singleTask"
             android:configChanges="orientation|keyboardHidden|screenSize"
             android:screenOrientation="portrait"/>
         <!--android:theme="@android:style/Theme.DeviceDefault"-->
-        <activity android:name=".view.TestActivity" />
+        <activity android:name="com.boyad.epubreader.view.TestActivity" />
 
         <service
-            android:name="com.example.epubreader.db.LibraryService"
+            android:name="com.boyad.epubreader.db.LibraryService"
             android:process=":LibraryService"/>
     </application>
     <!--android:launchMode="singleTask"-->
