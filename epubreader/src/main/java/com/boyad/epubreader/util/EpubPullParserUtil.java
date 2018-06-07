@@ -79,7 +79,7 @@ public class EpubPullParserUtil {
     public static TocElement parseTocFile(InputStream inputStream, BookModel model) throws IOException {
         try {
             XmlPullParser parser = XmlPullParserFactory.newInstance().newPullParser();
-            parser.setInput(new InputStreamReader(inputStream));
+            parser.setInput(inputStream, "utf-8");
             TocElement tocElement = null;
             int event = parser.getEventType();
             int depth = 0;
@@ -163,7 +163,7 @@ public class EpubPullParserUtil {
     public static void parseMetaFile(InputStream inputStream, BookModel model, Book book) throws IOException {
         try {
             XmlPullParser parser = XmlPullParserFactory.newInstance().newPullParser();
-            parser.setInput(new InputStreamReader(inputStream));
+            parser.setInput(inputStream, "utf-8");
             int eventType = parser.getEventType();
             boolean isReadMetaData = false;
             boolean isReadManifest = false;
@@ -276,7 +276,7 @@ public class EpubPullParserUtil {
             String internalDir = "";
             String internalOpfPath = "";
             XmlPullParser parser = XmlPullParserFactory.newInstance().newPullParser();
-            parser.setInput(new InputStreamReader(zipFile.getInputStream(containerEntry)));
+            parser.setInput(zipFile.getInputStream(containerEntry), "utf-8");
             int eventType = parser.getEventType();
             while (eventType != XmlPullParser.END_DOCUMENT) {
                 String tagName = parser.getName();
